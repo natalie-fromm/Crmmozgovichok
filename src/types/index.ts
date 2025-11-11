@@ -1,0 +1,100 @@
+export interface Child {
+  id: string;
+  code: string; // шифр
+  name: string; // Фамилия Имя Отчество (для администратора показывается полностью, для специалистов - сокращённо)
+  age: number;
+  birthDate: string; // дата рождения в формате YYYY-MM-DD
+  motherName: string;
+  fatherName: string;
+  firstVisitDate: string;
+  primaryComplaints: string;
+  additionalComplaints: string[];
+  sessions: Session[];
+  monthlyReports: MonthlyReport[];
+  archived?: boolean; // флаг архивирования карточки
+  diagnosticInfo?: string; // значимое из диагностики
+  otherActivities?: string; // посещение иных занятий
+  interests?: string; // интересы ребенка
+}
+
+export interface Session {
+  id: string;
+  childId: string;
+  date: string;
+  specialistId: string;
+  specialistName: string;
+  exercises: Exercise[];
+}
+
+export interface Exercise {
+  id: string;
+  description: string;
+  results: string;
+  photos: PhotoAttachment[];
+}
+
+export interface PhotoAttachment {
+  id: string;
+  url: string; // base64 data URL
+  fileName: string;
+  uploadedAt: string;
+}
+
+export interface MonthlyReport {
+  id: string;
+  month: string; // YYYY-MM
+  achievements: string;
+  nextMonthGoals: string;
+}
+
+export interface Specialist {
+  id: string;
+  firstName: string;
+  lastName: string;
+  role: 'admin' | 'specialist';
+  email: string;
+  password: string;
+  active?: boolean; // флаг активности специалиста
+  createdAt?: string; // дата создания аккаунта
+  birthday?: string; // день рождения
+  other?: string; // иное (дополнительная информация)
+}
+
+export interface ScheduleEntry {
+  id: string;
+  childId: string;
+  childName: string;
+  date: string;
+  time: string;
+  specialistId: string;
+  specialistName: string;
+  paymentAmount: number;
+  paymentType?: '' | 'subscription'; // пусто или "Абонемент"
+  sessionsCompleted: number; // пройдено занятий по абонементу
+  totalSessions: number; // всего занятий в абонементе
+  status: 'scheduled' | 'completed' | 'absent';
+  absenceReason?: string;
+  absenceCategory?: 'sick' | 'family' | 'other' | 'cancelled';
+  note?: string; // примечание к занятию
+}
+
+export interface ChildStatistics {
+  childId: string;
+  totalSessions: number;
+  totalAbsences: number;
+  absencesByCategory: Record<string, number>;
+  attendanceRate: number;
+  monthlyPayments: Record<string, number>;
+  totalPayments: number;
+  sessionsThisMonth: number;
+}
+
+export interface Notification {
+  id: string;
+  specialistId: string;
+  title: string;
+  message: string;
+  type: 'schedule' | 'reminder' | 'info';
+  read: boolean;
+  createdAt: string;
+}
