@@ -69,11 +69,19 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
 
   const toggleSpecialistStatus = (specialistId: string) => {
     onUpdateSpecialists(
-      specialists.map(s => 
-        s.id === specialistId 
-          ? { ...s, active: s.active === false ? true : false }
-          : s
-      )
+      specialists.map(s => {
+        if (s.id === specialistId) {
+          const willBeActive = s.active === false ? true : false;
+          return {
+            ...s,
+            active: willBeActive,
+            // Если деактивируем - устанавливаем дату деактивации
+            // Если активируем - очищаем дату деактивации
+            deactivationDate: willBeActive ? undefined : new Date().toISOString()
+          };
+        }
+        return s;
+      })
     );
   };
 
@@ -197,6 +205,7 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
                 <TableHead>Email</TableHead>
                 <TableHead>Роль</TableHead>
                 <TableHead>Дата регистрации</TableHead>
+                <TableHead>Дата деактивации</TableHead>
                 <TableHead>Статус</TableHead>
                 <TableHead>Действия</TableHead>
               </TableRow>
@@ -223,6 +232,12 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
                       {specialist.createdAt 
                         ? new Date(specialist.createdAt).toLocaleDateString('ru-RU')
                         : 'Не указана'
+                      }
+                    </TableCell>
+                    <TableCell>
+                      {specialist.deactivationDate 
+                        ? new Date(specialist.deactivationDate).toLocaleDateString('ru-RU')
+                        : '—'
                       }
                     </TableCell>
                     <TableCell>

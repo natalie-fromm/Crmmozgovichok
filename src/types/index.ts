@@ -58,6 +58,7 @@ export interface Specialist {
   createdAt?: string; // дата создания аккаунта
   birthday?: string; // день рождения
   other?: string; // иное (дополнительная информация)
+  deactivationDate?: string; // дата деактивации специалиста
 }
 
 export interface ScheduleEntry {

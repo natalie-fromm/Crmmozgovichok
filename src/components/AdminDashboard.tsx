@@ -437,7 +437,7 @@ export function AdminDashboard({ children, schedule, specialists, onUpdateChild,
           </TabsContent>
 
           <TabsContent value="knowledgebase">
-            <KnowledgeBase />
+            <KnowledgeBase specialists={specialists} />
           </TabsContent>
         </Tabs>
       </div>

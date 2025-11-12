@@ -130,6 +130,17 @@ export function SpecialistCardView({ specialist, onBack, onUpdate }: SpecialistC
           </div>
 
           <div className="space-y-2">
+            <Label>Дата деактивации</Label>
+            <Input 
+              value={editedSpecialist.deactivationDate 
+                ? new Date(editedSpecialist.deactivationDate).toLocaleDateString('ru-RU')
+                : '—'
+              }
+              disabled
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label>День рождения</Label>
             <Input 
               type="date"
@@ -151,7 +162,16 @@ export function SpecialistCardView({ specialist, onBack, onUpdate }: SpecialistC
             <Label>Статус</Label>
             <Select
               value={isActive ? 'active' : 'inactive'}
-              onValueChange={(value) => setEditedSpecialist({...editedSpecialist, active: value === 'active'})}
+              onValueChange={(value) => {
+                const willBeActive = value === 'active';
+                setEditedSpecialist({
+                  ...editedSpecialist, 
+                  active: willBeActive,
+                  // Если деактивируем и даты еще нет - устанавливаем дату деактивации
+                  // Если активируем - очищаем дату деактивации
+                  deactivationDate: willBeActive ? undefined : (editedSpecialist.deactivationDate || new Date().toISOString())
+                });
+              }}
             >
               <SelectTrigger>
                 <SelectValue />

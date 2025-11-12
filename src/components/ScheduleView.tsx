@@ -59,18 +59,37 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
   const weekDays = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
   const timeSlots = ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'];
 
+  // Получаем текущую дату
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().split('T')[0];
+
+  // Определяем, является ли отображаемая неделя будущей
+  const weekStartDate = new Date(currentWeekStart);
+  weekStartDate.setHours(0, 0, 0, 0);
+  const isFutureWeek = weekStartDate > today;
+
   // Сортируем специалистов: активные слева, деактивированные справа
-  const sortedSpecialists = [...specialists].sort((a, b) => {
-    const aActive = a.active !== false;
-    const bActive = b.active !== false;
-    
-    // Если один активен, а другой нет - активный идёт первым
-    if (aActive && !bActive) return -1;
-    if (!aActive && bActive) return 1;
-    
-    // Если оба активны или оба неактивны - сортируем по имени
-    return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`);
-  });
+  const sortedSpecialists = [...specialists]
+    .filter(s => {
+      // Если специалист активен - показываем всегда
+      if (s.active !== false) return true;
+      
+      // Если специалист деактивирован - показываем только в текущей и прошлых неделях
+      // Не показываем в будущих неделях
+      return !isFutureWeek;
+    })
+    .sort((a, b) => {
+      const aActive = a.active !== false;
+      const bActive = b.active !== false;
+      
+      // Если один активен, а другой нет - активный идёт первым
+      if (aActive && !bActive) return -1;
+      if (!aActive && bActive) return 1;
+      
+      // Если оба активны или оба неактивны - сортируем по имени
+      return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`);
+    });
 
   // Формируем список специалистов с их полными именами для отображения
   const specialistsList = sortedSpecialists.map(s => ({

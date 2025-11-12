@@ -1,48 +1,79 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { FileText, Image, Video, Upload, Trash2, Download, Eye } from "lucide-react";
+import { Checkbox } from "./ui/checkbox";
+import { FileText, Image, Video, Upload, Trash2, Download, Eye, Plus, Edit, X, GripVertical, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Specialist } from "../types";
 
 interface KnowledgeFile {
   id: string;
   name: string;
   type: 'document' | 'image' | 'video';
-  category: 'regulations' | 'science' | 'ideas';
   data: string;
-  uploadDate: string;
   size: string;
 }
 
+interface KnowledgeProject {
+  id: string;
+  name: string;
+  description: string;
+  category: 'regulations' | 'science' | 'ideas';
+  files: KnowledgeFile[];
+  createdDate: string;
+  updatedDate: string;
+  accessibleSpecialistIds: string[];
+  order: number;
+}
+
 interface KnowledgeBaseProps {
+  specialists: Specialist[];
   onUpdate?: () => void;
 }
 
-export function KnowledgeBase({ onUpdate }: KnowledgeBaseProps) {
-  const [files, setFiles] = useState<KnowledgeFile[]>([]);
+export function KnowledgeBase({ specialists, onUpdate }: KnowledgeBaseProps) {
+  const [projects, setProjects] = useState<KnowledgeProject[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<'regulations' | 'science' | 'ideas'>('regulations');
   const [previewFile, setPreviewFile] = useState<KnowledgeFile | null>(null);
+  const [showProjectForm, setShowProjectForm] = useState(false);
+  const [editingProject, setEditingProject] = useState<KnowledgeProject | null>(null);
+  const [viewingProject, setViewingProject] = useState<KnowledgeProject | null>(null);
+  
+  // Форма для нового/редактируемого проекта
+  const [projectName, setProjectName] = useState('');
+  const [projectDescription, setProjectDescription] = useState('');
+  const [projectFiles, setProjectFiles] = useState<KnowledgeFile[]>([]);
+  const [projectAccessibleSpecialistIds, setProjectAccessibleSpecialistIds] = useState<string[]>([]);
 
   useEffect(() => {
-    const savedFiles = localStorage.getItem('knowledgeBaseFiles');
-    if (savedFiles) {
-      setFiles(JSON.parse(savedFiles));
+    const savedProjects = localStorage.getItem('knowledgeBaseProjects');
+    if (savedProjects) {
+      const loadedProjects = JSON.parse(savedProjects);
+      // Добавляем accessibleSpecialistIds для старых проектов, если его нет
+      const migratedProjects = loadedProjects.map((project: KnowledgeProject) => ({
+        ...project,
+        accessibleSpecialistIds: project.accessibleSpecialistIds || [],
+        order: project.order !== undefined ? project.order : 0
+      }));
+      setProjects(migratedProjects);
     }
   }, []);
 
-  const saveFiles = (newFiles: KnowledgeFile[]) => {
-    setFiles(newFiles);
-    localStorage.setItem('knowledgeBaseFiles', JSON.stringify(newFiles));
+  const saveProjects = (newProjects: KnowledgeProject[]) => {
+    setProjects(newProjects);
+    localStorage.setItem('knowledgeBaseProjects', JSON.stringify(newProjects));
     onUpdate?.();
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFiles = event.target.files;
     if (!uploadedFiles) return;
+
+    const newFiles: KnowledgeFile[] = [];
 
     Array.from(uploadedFiles).forEach(file => {
       const reader = new FileReader();
@@ -61,22 +92,15 @@ export function KnowledgeBase({ onUpdate }: KnowledgeBaseProps) {
           id: Date.now().toString() + Math.random(),
           name: file.name,
           type: fileType,
-          category: selectedCategory,
           data: result,
-          uploadDate: new Date().toISOString(),
           size: formatFileSize(file.size)
         };
 
-        saveFiles([...files, newFile]);
+        newFiles.push(newFile);
+        setProjectFiles(prev => [...prev, newFile]);
       };
 
-      if (file.type.startsWith('image/') || file.type.startsWith('text/')) {
-        reader.readAsDataURL(file);
-      } else if (file.type.startsWith('video/')) {
-        reader.readAsDataURL(file);
-      } else {
-        reader.readAsDataURL(file);
-      }
+      reader.readAsDataURL(file);
     });
 
     event.target.value = '';
@@ -90,9 +114,72 @@ export function KnowledgeBase({ onUpdate }: KnowledgeBaseProps) {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
-  const deleteFile = (id: string) => {
-    if (confirm('Вы уверены, что хотите удалить этот файл?')) {
-      saveFiles(files.filter(f => f.id !== id));
+  const deleteFileFromProject = (fileId: string) => {
+    setProjectFiles(prev => prev.filter(f => f.id !== fileId));
+  };
+
+  const saveProject = () => {
+    if (!projectName.trim()) {
+      alert('Введите наименование проекта');
+      return;
+    }
+
+    if (editingProject) {
+      // Редактирование существующего проекта
+      const updatedProjects = projects.map(p => 
+        p.id === editingProject.id 
+          ? {
+              ...p,
+              name: projectName,
+              description: projectDescription,
+              files: projectFiles,
+              updatedDate: new Date().toISOString(),
+              accessibleSpecialistIds: projectAccessibleSpecialistIds
+            }
+          : p
+      );
+      saveProjects(updatedProjects);
+    } else {
+      // Создание нового проекта
+      const newProject: KnowledgeProject = {
+        id: Date.now().toString() + Math.random(),
+        name: projectName,
+        description: projectDescription,
+        category: selectedCategory,
+        files: projectFiles,
+        createdDate: new Date().toISOString(),
+        updatedDate: new Date().toISOString(),
+        accessibleSpecialistIds: projectAccessibleSpecialistIds,
+        order: projects.length
+      };
+      saveProjects([...projects, newProject]);
+    }
+
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setProjectName('');
+    setProjectDescription('');
+    setProjectFiles([]);
+    setProjectAccessibleSpecialistIds([]);
+    setShowProjectForm(false);
+    setEditingProject(null);
+  };
+
+  const startEditProject = (project: KnowledgeProject) => {
+    setEditingProject(project);
+    setProjectName(project.name);
+    setProjectDescription(project.description);
+    setProjectFiles(project.files);
+    setSelectedCategory(project.category);
+    setProjectAccessibleSpecialistIds(project.accessibleSpecialistIds);
+    setShowProjectForm(true);
+  };
+
+  const deleteProject = (id: string) => {
+    if (confirm('Вы уверены, что хотите удалить этот проект знаний?')) {
+      saveProjects(projects.filter(p => p.id !== id));
     }
   };
 
@@ -129,8 +216,8 @@ export function KnowledgeBase({ onUpdate }: KnowledgeBaseProps) {
     }
   };
 
-  const filteredFiles = (category: string) => {
-    return files.filter(f => f.category === category);
+  const filteredProjects = (category: string) => {
+    return projects.filter(p => p.category === category);
   };
 
   const renderFilePreview = (file: KnowledgeFile) => {
@@ -159,115 +246,440 @@ export function KnowledgeBase({ onUpdate }: KnowledgeBaseProps) {
             onClick={() => downloadFile(file)}
           >
             <Download className="w-4 h-4 mr-2" />
-            Скачать файл
+            Скачать фйл
           </Button>
         </div>
       );
     }
   };
 
-  const renderCategoryContent = (category: 'regulations' | 'science' | 'ideas') => {
-    const categoryFiles = filteredFiles(category);
-
+  const renderProjectForm = () => {
     return (
-      <Card>
+      <Card className="mb-4">
         <CardHeader>
-          <CardTitle>{getCategoryName(category)}</CardTitle>
-          <CardDescription>
-            Загрузите файлы в раздел {getCategoryName(category).toLowerCase()}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+          <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor={`file-upload-${category}`} className="cursor-pointer">
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 transition-colors">
-                  <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                  <p className="text-sm text-gray-600">
-                    Нажмите для загрузки файлов
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Документы, изображения, видео
-                  </p>
-                </div>
-              </Label>
-              <Input
-                id={`file-upload-${category}`}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  setSelectedCategory(category);
-                  handleFileUpload(e);
-                }}
-                accept="image/*,video/*,.pdf,.doc,.docx,.txt"
-              />
+              <CardTitle>{editingProject ? 'Редактировать проект' : 'Новый проект знаний'}</CardTitle>
+              <CardDescription>
+                {editingProject ? 'Внесите изменения в проект' : `Создайте новый проект в разделе ${getCategoryName(selectedCategory).toLowerCase()}`}
+              </CardDescription>
             </div>
+            <Button variant="ghost" size="sm" onClick={resetForm}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="project-name">Наименование проекта *</Label>
+            <Input
+              id="project-name"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              placeholder="Введите название проекта"
+            />
+          </div>
 
-            {categoryFiles.length > 0 && (
+          <div>
+            <Label htmlFor="project-description">Текстовый комментарий</Label>
+            <Textarea
+              id="project-description"
+              value={projectDescription}
+              onChange={(e) => setProjectDescription(e.target.value)}
+              placeholder="Добавьте описание или комментарий к проекту"
+              rows={4}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor={`file-upload-form`}>Прикрепленные файлы</Label>
+            <Label htmlFor={`file-upload-form`} className="cursor-pointer">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors mt-2">
+                <Upload className="w-6 h-6 mx-auto mb-2 text-gray-400" />
+                <p className="text-sm text-gray-600">
+                  Нажмите для загрузки файлов
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Документы, изображения, видео
+                </p>
+              </div>
+            </Label>
+            <Input
+              id={`file-upload-form`}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileUpload}
+              accept="image/*,video/*,.pdf,.doc,.docx,.txt"
+            />
+          </div>
+
+          {projectFiles.length > 0 && (
+            <div className="space-y-2">
+              <Label>Загруженные файлы ({projectFiles.length})</Label>
               <div className="space-y-2">
-                <h3 className="text-sm font-medium">Загруженные файлы ({categoryFiles.length})</h3>
-                <div className="space-y-2">
-                  {categoryFiles.map(file => (
-                    <div
-                      key={file.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        {getFileIcon(file.type)}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{file.name}</p>
-                          <p className="text-xs text-gray-500">
-                            {file.size} • {new Date(file.uploadDate).toLocaleDateString('ru-RU')}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setPreviewFile(file)}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => downloadFile(file)}
-                        >
-                          <Download className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteFile(file.id)}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </Button>
+                {projectFiles.map(file => (
+                  <div
+                    key={file.id}
+                    className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
+                  >
+                    <div className="flex items-center gap-2 flex-1">
+                      {getFileIcon(file.type)}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate">{file.name}</p>
+                        <p className="text-xs text-gray-500">{file.size}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPreviewFile(file)}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteFileFromProject(file.id)}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
+          )}
+
+          <div>
+            <Label>Доступные специалисты</Label>
+            <div className="space-y-2">
+              {specialists.map(specialist => (
+                <div key={specialist.id} className="flex items-center">
+                  <Checkbox
+                    id={`specialist-${specialist.id}`}
+                    checked={projectAccessibleSpecialistIds.includes(specialist.id)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setProjectAccessibleSpecialistIds(prev => [...prev, specialist.id]);
+                      } else {
+                        setProjectAccessibleSpecialistIds(prev => prev.filter(id => id !== specialist.id));
+                      }
+                    }}
+                  />
+                  <Label htmlFor={`specialist-${specialist.id}`} className="ml-2">
+                    {specialist.lastName} {specialist.firstName}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button onClick={saveProject}>
+              {editingProject ? 'Сохранить изменения' : 'Создать проект'}
+            </Button>
+            <Button variant="outline" onClick={resetForm}>
+              Отмена
+            </Button>
           </div>
         </CardContent>
       </Card>
     );
   };
 
+  const renderCategoryContent = (category: 'regulations' | 'science' | 'ideas') => {
+    const categoryProjects = filteredProjects(category).sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    const handleDragStart = (e: React.DragEvent<HTMLDivElement>, projectId: string) => {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/html', projectId);
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetProjectId: string) => {
+      e.preventDefault();
+      const draggedProjectId = e.dataTransfer.getData('text/html');
+      
+      if (draggedProjectId === targetProjectId) return;
+
+      const draggedIndex = categoryProjects.findIndex(p => p.id === draggedProjectId);
+      const targetIndex = categoryProjects.findIndex(p => p.id === targetProjectId);
+
+      if (draggedIndex === -1 || targetIndex === -1) return;
+
+      const newProjects = [...categoryProjects];
+      const [draggedProject] = newProjects.splice(draggedIndex, 1);
+      newProjects.splice(targetIndex, 0, draggedProject);
+
+      // Обновляем порядок
+      const updatedProjects = newProjects.map((project, index) => ({
+        ...project,
+        order: index
+      }));
+
+      // Объединяем с проектами других категорий
+      const otherProjects = projects.filter(p => p.category !== category);
+      saveProjects([...otherProjects, ...updatedProjects]);
+    };
+
+    const renderProjectContent = (project: KnowledgeProject) => {
+      const documentFiles = project.files.filter(f => f.type === 'document');
+      const videoFiles = project.files.filter(f => f.type === 'video');
+      const imageFiles = project.files.filter(f => f.type === 'image');
+
+      return (
+        <div className="space-y-6">
+          {/* Блок для текста */}
+          {project.description && (
+            <div>
+              <Label className="text-base">Содержание:</Label>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap mt-2 p-3 bg-gray-50 rounded-lg">
+                {project.description}
+              </p>
+            </div>
+          )}
+
+          {/* Блок для текстовых файлов */}
+          {documentFiles.length > 0 && (
+            <div>
+              <Label className="text-base">Текстовые файлы ({documentFiles.length}):</Label>
+              <div className="space-y-2 mt-2">
+                {documentFiles.map(file => (
+                  <div
+                    key={file.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {getFileIcon(file.type)}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate">{file.name}</p>
+                        <p className="text-xs text-gray-500">{file.size}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPreviewFile(file)}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => downloadFile(file)}
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Блок для видео */}
+          {videoFiles.length > 0 && (
+            <div>
+              <Label className="text-base">Видео ({videoFiles.length}):</Label>
+              <div className="space-y-2 mt-2">
+                {videoFiles.map(file => (
+                  <div
+                    key={file.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {getFileIcon(file.type)}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate">{file.name}</p>
+                        <p className="text-xs text-gray-500">{file.size}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPreviewFile(file)}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => downloadFile(file)}
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Блок для изображений */}
+          {imageFiles.length > 0 && (
+            <div>
+              <Label className="text-base">Изображения ({imageFiles.length}):</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                {imageFiles.map(file => (
+                  <div
+                    key={file.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {getFileIcon(file.type)}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate">{file.name}</p>
+                        <p className="text-xs text-gray-500">{file.size}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPreviewFile(file)}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => downloadFile(file)}
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Доступные специалисты */}
+          {project.accessibleSpecialistIds.length > 0 && (
+            <div>
+              <Label className="text-base">Доступ предоставлен ({project.accessibleSpecialistIds.length}):</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {project.accessibleSpecialistIds.map(id => {
+                  const specialist = specialists.find(s => s.id === id);
+                  return specialist ? (
+                    <div key={id} className="flex items-center gap-1 px-2 py-1 bg-blue-50 rounded text-sm">
+                      <Users className="w-3 h-3" />
+                      <span>{specialist.lastName} {specialist.firstName}</span>
+                    </div>
+                  ) : null;
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    return (
+      <div className="space-y-4">
+        {!showProjectForm && (
+          <Button 
+            onClick={() => {
+              setSelectedCategory(category);
+              setShowProjectForm(true);
+            }}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Создать проект
+          </Button>
+        )}
+
+        {showProjectForm && selectedCategory === category && renderProjectForm()}
+
+        {categoryProjects.length > 0 ? (
+          <div className="space-y-4">
+            {categoryProjects.map(project => {
+              return (
+                <Card 
+                  key={project.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, project.id)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, project.id)}
+                  className="cursor-move"
+                >
+                  <CardHeader 
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => setViewingProject(project)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-2 flex-1">
+                        <GripVertical className="w-5 h-5 text-gray-400 mt-1" />
+                        <div className="flex-1">
+                          <CardTitle className="text-xl font-bold">{project.name}</CardTitle>
+                          {project.description && (
+                            <CardDescription className="mt-2 line-clamp-2">
+                              {project.description}
+                            </CardDescription>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startEditProject(project)}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteProject(project.id)}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                </Card>
+              );
+            })}
+          </div>
+        ) : (
+          !showProjectForm && (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-gray-500">Пока нет проектов в этом разделе</p>
+                <p className="text-sm text-gray-400 mt-1">Нажмите кнопку "Создать проект" чтобы добавить первый проект</p>
+              </CardContent>
+            </Card>
+          )
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
-      <Tabs defaultValue="regulations">
+      <Tabs defaultValue="regulations" onValueChange={(value) => {
+        setSelectedCategory(value as 'regulations' | 'science' | 'ideas');
+        if (showProjectForm && !editingProject) {
+          resetForm();
+        }
+      }}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="regulations">
-            Регламенты ({filteredFiles('regulations').length})
+            Регламенты ({filteredProjects('regulations').length})
           </TabsTrigger>
           <TabsTrigger value="science">
-            Наука ({filteredFiles('science').length})
+            Наука ({filteredProjects('science').length})
           </TabsTrigger>
           <TabsTrigger value="ideas">
-            Идеи ({filteredFiles('ideas').length})
+            Идеи ({filteredProjects('ideas').length})
           </TabsTrigger>
         </TabsList>
 
@@ -292,13 +704,201 @@ export function KnowledgeBase({ onUpdate }: KnowledgeBaseProps) {
             <DialogDescription>
               {previewFile && (
                 <>
-                  {getCategoryName(previewFile.category)} • {previewFile.size} • 
-                  {new Date(previewFile.uploadDate).toLocaleDateString('ru-RU')}
+                  {previewFile.size}
                 </>
               )}
             </DialogDescription>
           </DialogHeader>
           {previewFile && renderFilePreview(previewFile)}
+        </DialogContent>
+      </Dialog>
+
+      {/* Диалог просмотра проекта */}
+      <Dialog open={!!viewingProject} onOpenChange={(open) => !open && setViewingProject(null)}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-start justify-between">
+              <div>
+                <DialogTitle className="text-2xl">{viewingProject?.name}</DialogTitle>
+                <DialogDescription>
+                  {viewingProject && getCategoryName(viewingProject.category)}
+                </DialogDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (viewingProject) {
+                      startEditProject(viewingProject);
+                      setViewingProject(null);
+                    }
+                  }}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Редактировать
+                </Button>
+              </div>
+            </div>
+          </DialogHeader>
+          {viewingProject && (
+            <div className="mt-4">
+              {(() => {
+                const documentFiles = viewingProject.files.filter(f => f.type === 'document');
+                const videoFiles = viewingProject.files.filter(f => f.type === 'video');
+                const imageFiles = viewingProject.files.filter(f => f.type === 'image');
+
+                return (
+                  <div className="space-y-6">
+                    {/* Блок для текста */}
+                    {viewingProject.description && (
+                      <div>
+                        <Label className="text-base">Содержание:</Label>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap mt-2 p-3 bg-gray-50 rounded-lg">
+                          {viewingProject.description}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Блок для текстовых файлов */}
+                    {documentFiles.length > 0 && (
+                      <div>
+                        <Label className="text-base">Текстовые файлы ({documentFiles.length}):</Label>
+                        <div className="space-y-2 mt-2">
+                          {documentFiles.map(file => (
+                            <div
+                              key={file.id}
+                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                            >
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                {getFileIcon(file.type)}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm truncate">{file.name}</p>
+                                  <p className="text-xs text-gray-500">{file.size}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setPreviewFile(file)}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => downloadFile(file)}
+                                >
+                                  <Download className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Блок для видео */}
+                    {videoFiles.length > 0 && (
+                      <div>
+                        <Label className="text-base">Видео ({videoFiles.length}):</Label>
+                        <div className="space-y-2 mt-2">
+                          {videoFiles.map(file => (
+                            <div
+                              key={file.id}
+                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                            >
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                {getFileIcon(file.type)}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm truncate">{file.name}</p>
+                                  <p className="text-xs text-gray-500">{file.size}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setPreviewFile(file)}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => downloadFile(file)}
+                                >
+                                  <Download className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Блок для изображений */}
+                    {imageFiles.length > 0 && (
+                      <div>
+                        <Label className="text-base">Изображения ({imageFiles.length}):</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                          {imageFiles.map(file => (
+                            <div
+                              key={file.id}
+                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                            >
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                {getFileIcon(file.type)}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm truncate">{file.name}</p>
+                                  <p className="text-xs text-gray-500">{file.size}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setPreviewFile(file)}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => downloadFile(file)}
+                                >
+                                  <Download className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Доступные специалисты */}
+                    {viewingProject.accessibleSpecialistIds.length > 0 && (
+                      <div>
+                        <Label className="text-base">Доступ предоставлен ({viewingProject.accessibleSpecialistIds.length}):</Label>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {viewingProject.accessibleSpecialistIds.map(id => {
+                            const specialist = specialists.find(s => s.id === id);
+                            return specialist ? (
+                              <div key={id} className="flex items-center gap-1 px-2 py-1 bg-blue-50 rounded text-sm">
+                                <Users className="w-3 h-3" />
+                                <span>{specialist.lastName} {specialist.firstName}</span>
+                              </div>
+                            ) : null;
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
