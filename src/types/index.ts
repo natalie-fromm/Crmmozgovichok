@@ -69,9 +69,10 @@ export interface ScheduleEntry {
   specialistId: string;
   specialistName: string;
   paymentAmount: number;
-  paymentType?: '' | 'subscription'; // пусто или "Абонемент"
+  paymentType?: 'single' | 'subscription'; // Разово или Абонемент
   sessionsCompleted: number; // пройдено занятий по абонементу
   totalSessions: number; // всего занятий в абонементе
+  subscriptionCost?: number; // стоимость абонемента
   status: 'scheduled' | 'completed' | 'absent';
   absenceReason?: string;
   absenceCategory?: 'sick' | 'family' | 'other' | 'cancelled';

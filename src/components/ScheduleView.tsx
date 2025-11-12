@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { ScheduleEntry, Specialist, Child } from "../types";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -7,7 +7,7 @@ import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Badge } from "./ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Calendar, Copy, Plus, ChevronLeft, ChevronRight, Send } from "lucide-react";
 import { Textarea } from "./ui/textarea";
 
@@ -28,6 +28,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
   });
 
   const [isAddingEntry, setIsAddingEntry] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<ScheduleEntry | null>(null);
   const [newEntry, setNewEntry] = useState({
     childId: '',
     childName: '',
@@ -36,9 +37,10 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
     specialistId: '',
     specialistName: '',
     paymentAmount: 2500,
-    paymentType: '' as '' | 'subscription',
+    paymentType: 'single' as 'single' | 'subscription',
     sessionsCompleted: 0,
     totalSessions: 8,
+    subscriptionCost: 0,
     note: ''
   });
 
@@ -142,6 +144,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
       paymentType: newEntry.paymentType,
       sessionsCompleted: newEntry.sessionsCompleted,
       totalSessions: newEntry.totalSessions,
+      subscriptionCost: newEntry.subscriptionCost,
       status: 'scheduled',
       note: newEntry.note
     };
@@ -155,11 +158,30 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
       specialistId: '',
       specialistName: '',
       paymentAmount: 2500,
-      paymentType: '' as '' | 'subscription',
+      paymentType: 'single' as 'single' | 'subscription',
       sessionsCompleted: 0,
       totalSessions: 8,
+      subscriptionCost: 0,
       note: ''
     });
+  };
+
+  const openEditDialog = (entry: ScheduleEntry) => {
+    setEditingEntry(entry);
+  };
+
+  const saveEditedEntry = () => {
+    if (editingEntry) {
+      updateEntry(editingEntry.id, editingEntry);
+      setEditingEntry(null);
+    }
+  };
+
+  const deleteEntry = (id: string) => {
+    if (confirm('Вы уверены, что хотите удалить это занятие?')) {
+      onUpdateSchedule(schedule.filter(entry => entry.id !== id));
+      setEditingEntry(null);
+    }
   };
 
   const generateSpecialistSchedule = (specialistName: string, date: string) => {
@@ -219,6 +241,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Новое занятие в расписании</DialogTitle>
+                    <DialogDescription>Добавьте новое занятие в расписание.</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
@@ -293,48 +316,58 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Оплата</Label>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Input 
-                            type="number"
-                            placeholder="Сумма"
-                            value={newEntry.paymentAmount}
-                            onChange={(e) => setNewEntry({...newEntry, paymentAmount: parseInt(e.target.value)})}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Select
-                            value={newEntry.paymentType}
-                            onValueChange={(value) => setNewEntry({...newEntry, paymentType: value as '' | 'subscription'})}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Тип оплаты" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="">-</SelectItem>
-                              <SelectItem value="subscription">Абонемент</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Тип оплаты</Label>
+                        <Select
+                          value={newEntry.paymentType}
+                          onValueChange={(value) => setNewEntry({...newEntry, paymentType: value as 'single' | 'subscription'})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Выберите тип" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="single">Разово</SelectItem>
+                            <SelectItem value="subscription">Абонемент</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Оплачено</Label>
+                        <Input 
+                          type="number"
+                          placeholder="Сумма"
+                          value={newEntry.paymentAmount}
+                          onChange={(e) => setNewEntry({...newEntry, paymentAmount: parseInt(e.target.value)})}
+                        />
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Абонемент (пройдено / всего)</Label>
-                      <div className="flex gap-2">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Абонемент (пройдено / всего)</Label>
+                        <div className="flex gap-2">
+                          <Input 
+                            type="number"
+                            value={newEntry.sessionsCompleted}
+                            onChange={(e) => setNewEntry({...newEntry, sessionsCompleted: parseInt(e.target.value)})}
+                            className="w-20"
+                          />
+                          <span className="flex items-center">/</span>
+                          <Input 
+                            type="number"
+                            value={newEntry.totalSessions}
+                            onChange={(e) => setNewEntry({...newEntry, totalSessions: parseInt(e.target.value)})}
+                            className="w-20"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Стоимость</Label>
                         <Input 
                           type="number"
-                          value={newEntry.sessionsCompleted}
-                          onChange={(e) => setNewEntry({...newEntry, sessionsCompleted: parseInt(e.target.value)})}
-                          className="w-20"
-                        />
-                        <span className="flex items-center">/</span>
-                        <Input 
-                          type="number"
-                          value={newEntry.totalSessions}
-                          onChange={(e) => setNewEntry({...newEntry, totalSessions: parseInt(e.target.value)})}
-                          className="w-20"
+                          placeholder="Стоимость абонемента"
+                          value={newEntry.subscriptionCost}
+                          onChange={(e) => setNewEntry({...newEntry, subscriptionCost: parseInt(e.target.value)})}
                         />
                       </div>
                     </div>
@@ -366,11 +399,199 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
             </Button>
           </div>
 
+          {/* Dialog для редактирования занятия */}
+          <Dialog open={!!editingEntry} onOpenChange={(open) => !open && setEditingEntry(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Редактирование занятия</DialogTitle>
+                <DialogDescription>Внесите изменения в занятие.</DialogDescription>
+              </DialogHeader>
+              {editingEntry && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Клиент</Label>
+                    <Select
+                      value={editingEntry.childId}
+                      onValueChange={(value) => {
+                        const selectedChild = children.find(c => c.id === value);
+                        if (selectedChild) {
+                          setEditingEntry({
+                            ...editingEntry,
+                            childId: value,
+                            childName: selectedChild.name
+                          });
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите клиента" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sortedChildren.map(child => (
+                          <SelectItem key={child.id} value={child.id}>
+                            {child.name} ({child.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Дата</Label>
+                      <Input 
+                        type="date"
+                        value={editingEntry.date}
+                        onChange={(e) => setEditingEntry({...editingEntry, date: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Время</Label>
+                      <Input 
+                        type="time"
+                        value={editingEntry.time}
+                        onChange={(e) => setEditingEntry({...editingEntry, time: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Специалист</Label>
+                    <Select
+                      value={editingEntry.specialistId}
+                      onValueChange={(value) => {
+                        const selectedSpecialist = specialists.find(s => s.id === value);
+                        if (selectedSpecialist) {
+                          setEditingEntry({
+                            ...editingEntry,
+                            specialistId: value,
+                            specialistName: `${selectedSpecialist.lastName} ${selectedSpecialist.firstName}`
+                          });
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите специалиста" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {specialists.filter(s => s.active !== false).map(specialist => (
+                          <SelectItem key={specialist.id} value={specialist.id}>
+                            {specialist.lastName} {specialist.firstName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Тип оплаты</Label>
+                      <Select
+                        value={editingEntry.paymentType}
+                        onValueChange={(value) => setEditingEntry({...editingEntry, paymentType: value as 'single' | 'subscription'})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Выберите тип" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="single">Разово</SelectItem>
+                          <SelectItem value="subscription">Абонемент</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Оплачено</Label>
+                      <Input 
+                        type="number"
+                        placeholder="Сумма"
+                        value={editingEntry.paymentAmount}
+                        onChange={(e) => setEditingEntry({...editingEntry, paymentAmount: parseInt(e.target.value)})}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Абонемент (пройдено / всего)</Label>
+                      <div className="flex gap-2">
+                        <Input 
+                          type="number"
+                          value={editingEntry.sessionsCompleted}
+                          onChange={(e) => setEditingEntry({...editingEntry, sessionsCompleted: parseInt(e.target.value)})}
+                          className="w-20"
+                        />
+                        <span className="flex items-center">/</span>
+                        <Input 
+                          type="number"
+                          value={editingEntry.totalSessions}
+                          onChange={(e) => setEditingEntry({...editingEntry, totalSessions: parseInt(e.target.value)})}
+                          className="w-20"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Стоимость</Label>
+                      <Input 
+                        type="number"
+                        placeholder="Стоимость абонемента"
+                        value={editingEntry.subscriptionCost}
+                        onChange={(e) => setEditingEntry({...editingEntry, subscriptionCost: parseInt(e.target.value)})}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Примечание</Label>
+                    <Textarea
+                      value={editingEntry.note || ''}
+                      onChange={(e) => setEditingEntry({...editingEntry, note: e.target.value})}
+                      className="h-20"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Статус</Label>
+                    <Select
+                      value={editingEntry.status}
+                      onValueChange={(value) => setEditingEntry({...editingEntry, status: value as 'scheduled' | 'completed' | 'absent'})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="scheduled">Запланировано</SelectItem>
+                        <SelectItem value="completed">Проведено</SelectItem>
+                        <SelectItem value="absent">Пропуск</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {editingEntry.status === 'absent' && (
+                    <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                      <Label>Причина пропуска</Label>
+                      <Select
+                        value={editingEntry.absenceCategory || ''}
+                        onValueChange={(value) => setEditingEntry({...editingEntry, absenceCategory: value as any, absenceReason: value})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Причина" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sick">Болезнь</SelectItem>
+                          <SelectItem value="family">Семейные обстоятельства</SelectItem>
+                          <SelectItem value="cancelled">Отмена</SelectItem>
+                          <SelectItem value="other">Другое</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Button onClick={saveEditedEntry} className="flex-1">Сохранить</Button>
+                    <Button variant="destructive" onClick={() => deleteEntry(editingEntry.id)}>Удалить</Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-48">День / Время</TableHead>
+                  <TableHead className="w-48">Ден / Время</TableHead>
                   {specialistsList.length > 0 ? (
                     specialistsList.map((specialist, index) => (
                       <TableHead key={index} className="min-w-[200px]">
@@ -386,7 +607,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
               </TableHeader>
               <TableBody>
                 {weekDates.map((date, dayIndex) => (
-                  <>
+                  <Fragment key={`day-group-${date}`}>
                     {/* Строка-разделитель с днем недели и датой */}
                     <TableRow key={`day-${date}`}>
                       <TableCell 
@@ -417,7 +638,11 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                             return (
                               <TableCell key={specIndex} className="p-1 relative">
                                 {entries.map(entry => (
-                                  <div key={entry.id} className="p-2 mb-1 bg-blue-50 border border-blue-200 rounded text-xs">
+                                  <div 
+                                    key={entry.id} 
+                                    className="p-2 mb-1 bg-blue-50 border border-blue-200 rounded text-xs cursor-pointer hover:bg-blue-100 transition-colors"
+                                    onClick={() => openEditDialog(entry)}
+                                  >
                                     <div className="mb-1">{entry.childName}</div>
                                     {entry.note && (
                                       <div className="mt-1 text-gray-600 italic text-xs">
@@ -425,12 +650,16 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                                       </div>
                                     )}
                                     <div className="mt-1 flex items-center justify-between">
-                                      <Badge variant="outline" className="text-xs">
-                                        {entry.sessionsCompleted}/{entry.totalSessions}
-                                      </Badge>
-                                      <span>{entry.paymentAmount}₽</span>
+                                      {entry.paymentType === 'subscription' && entry.sessionsCompleted > 0 && (
+                                        <Badge variant="outline" className="text-xs">
+                                          {entry.sessionsCompleted}/{entry.totalSessions}
+                                        </Badge>
+                                      )}
+                                      <span className={entry.paymentType !== 'subscription' || entry.sessionsCompleted === 0 ? 'ml-auto' : ''}>
+                                        {entry.paymentAmount}₽
+                                      </span>
                                     </div>
-                                    <div className="mt-2">
+                                    <div className="mt-2" onClick={(e) => e.stopPropagation()}>
                                       <Select
                                         value={entry.status}
                                         onValueChange={(value) => updateEntry(entry.id, { 
@@ -448,7 +677,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                                       </Select>
                                     </div>
                                     {entry.status === 'absent' && (
-                                      <div className="mt-1">
+                                      <div className="mt-1" onClick={(e) => e.stopPropagation()}>
                                         <Select
                                           value={entry.absenceCategory || ''}
                                           onValueChange={(value) => updateEntry(entry.id, { 
@@ -478,7 +707,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                         )}
                       </TableRow>
                     ))}
-                  </>
+                  </Fragment>
                 ))} 
               </TableBody>
             </Table>
