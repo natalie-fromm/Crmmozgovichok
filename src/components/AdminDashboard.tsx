@@ -10,7 +10,8 @@ import { ChildCardView } from "./ChildCardView";
 import { ScheduleView } from "./ScheduleView";
 import { NewChildForm } from "./NewChildForm";
 import { SpecialistsManagement } from "./SpecialistsManagement";
-import { Users, Calendar, BarChart3, LogOut, Search, TrendingUp, DollarSign, Download, Plus, Archive, ArchiveRestore, UserCog } from "lucide-react";
+import { KnowledgeBase } from "./KnowledgeBase";
+import { Users, Calendar, BarChart3, LogOut, Search, TrendingUp, DollarSign, Download, Plus, Archive, ArchiveRestore, UserCog, BookOpen } from "lucide-react";
 import { exportStatisticsToPDF } from "../utils/pdfExport";
 import logo from "figma:asset/a77c055ce1f22b1a1ba46b904d066b60abd7fc2a.png";
 
@@ -164,6 +165,10 @@ export function AdminDashboard({ children, schedule, specialists, onUpdateChild,
             <TabsTrigger value="specialists" className="flex items-center gap-2">
               <UserCog className="w-4 h-4" />
               Специалисты
+            </TabsTrigger>
+            <TabsTrigger value="knowledgebase" className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4" />
+              База знаний
             </TabsTrigger>
           </TabsList>
 
@@ -429,6 +434,10 @@ export function AdminDashboard({ children, schedule, specialists, onUpdateChild,
               specialists={specialists}
               onUpdateSpecialists={onUpdateSpecialists}
             />
+          </TabsContent>
+
+          <TabsContent value="knowledgebase">
+            <KnowledgeBase />
           </TabsContent>
         </Tabs>
       </div>
