@@ -406,11 +406,11 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
           </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex items-center justify-between bg-blue-50 px-4 py-2 rounded-md">
             <Button variant="outline" size="sm" onClick={goToPreviousWeek}>
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <span>
+            <span className="font-bold text-base">
               {new Date(weekDates[0]).toLocaleDateString('ru-RU')} - {new Date(weekDates[6]).toLocaleDateString('ru-RU')}
             </span>
             <Button variant="outline" size="sm" onClick={goToNextWeek}>

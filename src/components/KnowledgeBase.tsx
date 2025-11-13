@@ -6,9 +6,10 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Checkbox } from "./ui/checkbox";
-import { FileText, Image, Video, Upload, Trash2, Download, Eye, Plus, Edit, X, GripVertical, Users } from "lucide-react";
+import { FileText, Image, Video, Upload, Trash2, Download, Eye, Plus, Edit, X, GripVertical, Users, BookOpen } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Specialist } from "../types";
+import { DocumentReader } from "./DocumentReader";
 
 interface KnowledgeFile {
   id: string;
@@ -42,6 +43,7 @@ export function KnowledgeBase({ specialists, onUpdate }: KnowledgeBaseProps) {
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [editingProject, setEditingProject] = useState<KnowledgeProject | null>(null);
   const [viewingProject, setViewingProject] = useState<KnowledgeProject | null>(null);
+  const [readingDocument, setReadingDocument] = useState<KnowledgeFile | null>(null);
   
   // Форма для нового/редактируемого проекта
   const [projectName, setProjectName] = useState('');
@@ -450,36 +452,52 @@ export function KnowledgeBase({ specialists, onUpdate }: KnowledgeBaseProps) {
             <div>
               <Label className="text-base">Текстовые файлы ({documentFiles.length}):</Label>
               <div className="space-y-2 mt-2">
-                {documentFiles.map(file => (
-                  <div
-                    key={file.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      {getFileIcon(file.type)}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate">{file.name}</p>
-                        <p className="text-xs text-gray-500">{file.size}</p>
+                {documentFiles.map(file => {
+                  const fileExtension = file.name.toLowerCase().split('.').pop();
+                  const isReadable = fileExtension === 'txt' || fileExtension === 'doc' || fileExtension === 'docx' || fileExtension === 'pdf';
+                  
+                  return (
+                    <div
+                      key={file.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {getFileIcon(file.type)}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm truncate">{file.name}</p>
+                          <p className="text-xs text-gray-500">{file.size}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {isReadable ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setReadingDocument(file)}
+                            title="Читать как книгу"
+                          >
+                            <BookOpen className="w-4 h-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setPreviewFile(file)}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => downloadFile(file)}
+                        >
+                          <Download className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setPreviewFile(file)}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => downloadFile(file)}
-                      >
-                        <Download className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -765,36 +783,55 @@ export function KnowledgeBase({ specialists, onUpdate }: KnowledgeBaseProps) {
                       <div>
                         <Label className="text-base">Текстовые файлы ({documentFiles.length}):</Label>
                         <div className="space-y-2 mt-2">
-                          {documentFiles.map(file => (
-                            <div
-                              key={file.id}
-                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                            >
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                {getFileIcon(file.type)}
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm truncate">{file.name}</p>
-                                  <p className="text-xs text-gray-500">{file.size}</p>
+                          {documentFiles.map(file => {
+                            const fileExtension = file.name.toLowerCase().split('.').pop();
+                            const isReadable = fileExtension === 'txt' || fileExtension === 'doc' || fileExtension === 'docx' || fileExtension === 'pdf';
+                            
+                            return (
+                              <div
+                                key={file.id}
+                                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                              >
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  {getFileIcon(file.type)}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm truncate">{file.name}</p>
+                                    <p className="text-xs text-gray-500">{file.size}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  {isReadable ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setReadingDocument(file);
+                                        setViewingProject(null);
+                                      }}
+                                      title="Читать как книгу"
+                                    >
+                                      <BookOpen className="w-4 h-4" />
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => setPreviewFile(file)}
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => downloadFile(file)}
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </Button>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setPreviewFile(file)}
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => downloadFile(file)}
-                                >
-                                  <Download className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -901,6 +938,15 @@ export function KnowledgeBase({ specialists, onUpdate }: KnowledgeBaseProps) {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Читалка документов */}
+      {readingDocument && (
+        <DocumentReader
+          fileName={readingDocument.name}
+          fileData={readingDocument.data}
+          onClose={() => setReadingDocument(null)}
+        />
+      )}
     </div>
   );
 }

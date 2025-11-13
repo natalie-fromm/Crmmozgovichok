@@ -13,6 +13,73 @@ export default function App() {
   const [specialists, setSpecialists] = useLocalStorage<Specialist[]>('crm_specialists', mockSpecialists);
   const [notifications, setNotifications] = useLocalStorage<Notification[]>('crm_notifications', []);
 
+  // Защита от скриншотов и скачивания для специалистов
+  useEffect(() => {
+    if (!currentUser || currentUser.role === 'admin') return;
+
+    // Блокировка контекстного меню (правая кнопка мыши)
+    const preventContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      return false;
+    };
+
+    // Блокировка горячих клавиш
+    const preventKeydown = (e: KeyboardEvent) => {
+      // Ctrl+S, Ctrl+P (сохранение и печать)
+      if (e.ctrlKey && (e.key === 's' || e.key === 'p')) {
+        e.preventDefault();
+        return false;
+      }
+      // Ctrl+Shift+S (сохранить как)
+      if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+        e.preventDefault();
+        return false;
+      }
+      // PrintScreen, F12 (инструменты разработчика)
+      if (e.key === 'PrintScreen' || e.key === 'F12') {
+        e.preventDefault();
+        return false;
+      }
+      // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U (инструменты разработчика)
+      if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) {
+        e.preventDefault();
+        return false;
+      }
+      if (e.ctrlKey && e.key === 'u') {
+        e.preventDefault();
+        return false;
+      }
+    };
+
+    // Блокировка выделения текста
+    const preventSelection = (e: Event) => {
+      e.preventDefault();
+      return false;
+    };
+
+    // Блокировка перетаскивания изображений
+    const preventDragStart = (e: DragEvent) => {
+      e.preventDefault();
+      return false;
+    };
+
+    // Добавляем обработчики
+    document.addEventListener('contextmenu', preventContextMenu);
+    document.addEventListener('keydown', preventKeydown);
+    document.addEventListener('selectstart', preventSelection);
+    document.addEventListener('dragstart', preventDragStart);
+    document.addEventListener('copy', preventSelection);
+
+    // Убираем обработчики при размонтировании
+    return () => {
+      document.removeEventListener('contextmenu', preventContextMenu);
+      document.removeEventListener('keydown', preventKeydown);
+      document.removeEventListener('selectstart', preventSelection);
+      document.removeEventListener('dragstart', preventDragStart);
+      document.removeEventListener('copy', preventSelection);
+    };
+  }, [currentUser]);
+
   // Генерация уведомлений о расписании
   useEffect(() => {
     if (!currentUser || currentUser.role === 'admin') return;

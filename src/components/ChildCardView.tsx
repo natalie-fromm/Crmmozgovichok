@@ -21,9 +21,10 @@ interface ChildCardViewProps {
   onUpdate: (child: Child) => void;
   canEdit: boolean;
   statistics?: ChildStatistics;
+  isSpecialist?: boolean;
 }
 
-export function ChildCardView({ child, onBack, onUpdate, canEdit, statistics }: ChildCardViewProps) {
+export function ChildCardView({ child, onBack, onUpdate, canEdit, statistics, isSpecialist }: ChildCardViewProps) {
   const [editedChild, setEditedChild] = useState<Child>(child);
   
   // Разбиваем полное имя на фамилию, имя и отчество
@@ -142,15 +143,41 @@ export function ChildCardView({ child, onBack, onUpdate, canEdit, statistics }: 
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-gray-50 p-6 relative" style={{ 
+      userSelect: isSpecialist ? 'none' : 'auto',
+      WebkitUserSelect: isSpecialist ? 'none' : 'auto',
+      MozUserSelect: isSpecialist ? 'none' : 'auto',
+      msUserSelect: isSpecialist ? 'none' : 'auto'
+    }}>
+      {/* Водяной знак для специалистов */}
+      {isSpecialist && (
+        <div 
+          className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center"
+          style={{
+            background: 'repeating-linear-gradient(45deg, transparent, transparent 200px, rgba(83, 180, 233, 0.03) 200px, rgba(83, 180, 233, 0.03) 400px)',
+          }}
+        >
+          <div className="text-gray-400 opacity-10 text-6xl rotate-[-45deg] select-none">
+            КОНФИДЕНЦИАЛЬНО
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-5xl mx-auto relative z-10"
+        style={{ 
+          userSelect: isSpecialist ? 'none' : 'auto',
+          WebkitUserSelect: isSpecialist ? 'none' : 'auto',
+          MozUserSelect: isSpecialist ? 'none' : 'auto',
+          msUserSelect: isSpecialist ? 'none' : 'auto'
+        }}
+      >
         <div className="mb-6 flex items-center justify-between">
           <Button variant="ghost" onClick={onBack}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Назад
           </Button>
           <div className="flex gap-2">
-            {statistics && (
+            {statistics && !isSpecialist && (
               <Button variant="outline" onClick={handleExportPDF}>
                 <Download className="w-4 h-4 mr-2" />
                 Экспорт в PDF
