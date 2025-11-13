@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Child, Specialist, ScheduleEntry, Notification } from './types';
+import { Child, Specialist, ScheduleEntry, Notification, SpecialistSalary, MonthlyExpense, ExpenseSettings } from './types';
 import { mockChildren, mockSpecialists, mockSchedule } from './data/mockData';
 import { LoginPage } from './components/LoginPage';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -12,6 +12,12 @@ export default function App() {
   const [schedule, setSchedule] = useLocalStorage<ScheduleEntry[]>('crm_schedule', mockSchedule);
   const [specialists, setSpecialists] = useLocalStorage<Specialist[]>('crm_specialists', mockSpecialists);
   const [notifications, setNotifications] = useLocalStorage<Notification[]>('crm_notifications', []);
+  const [salaries, setSalaries] = useLocalStorage<SpecialistSalary[]>('crm_salaries', []);
+  const [expenses, setExpenses] = useLocalStorage<MonthlyExpense[]>('crm_expenses', []);
+  const [expenseSettings, setExpenseSettings] = useLocalStorage<ExpenseSettings>('crm_expense_settings', {
+    taxRate: 0,
+    acquiringRate: 0
+  });
 
   // Защита от скриншотов и скачивания для специалистов
   useEffect(() => {
@@ -166,9 +172,15 @@ export default function App() {
         children={children}
         schedule={schedule}
         specialists={specialists}
+        salaries={salaries}
+        expenses={expenses}
+        expenseSettings={expenseSettings}
         onUpdateChild={handleUpdateChild}
         onUpdateSchedule={handleUpdateSchedule}
         onUpdateSpecialists={handleUpdateSpecialists}
+        onUpdateSalaries={setSalaries}
+        onUpdateExpenses={setExpenses}
+        onUpdateExpenseSettings={setExpenseSettings}
         onLogout={handleLogout}
         onAddChild={handleAddChild}
       />

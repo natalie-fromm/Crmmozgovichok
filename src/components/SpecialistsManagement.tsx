@@ -25,6 +25,7 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
     email: "",
     password: "",
     role: "specialist" as "admin" | "specialist",
+    category: undefined as "neuropsychologist" | "psychologist" | "speech_therapist" | "special_educator" | undefined,
     birthday: "",
     other: ""
   });
@@ -48,6 +49,7 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
       email: newSpecialist.email,
       password: newSpecialist.password,
       role: newSpecialist.role,
+      category: newSpecialist.category,
       active: true,
       createdAt: new Date().toISOString(),
       birthday: newSpecialist.birthday || undefined,
@@ -62,6 +64,7 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
       email: "",
       password: "",
       role: "specialist",
+      category: undefined,
       birthday: "",
       other: ""
     });
@@ -174,6 +177,23 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
                     </Select>
                   </div>
                   <div className="space-y-2">
+                    <Label>Категория</Label>
+                    <Select
+                      value={newSpecialist.category}
+                      onValueChange={(value: "neuropsychologist" | "psychologist" | "speech_therapist" | "special_educator" | undefined) => setNewSpecialist({...newSpecialist, category: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="neuropsychologist">Нейропсихолог</SelectItem>
+                        <SelectItem value="psychologist">Психолог</SelectItem>
+                        <SelectItem value="speech_therapist">Логопед</SelectItem>
+                        <SelectItem value="special_educator">Дефектолог</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
                     <Label>День рождения</Label>
                     <Input 
                       type="date"
@@ -204,6 +224,7 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
                 <TableHead>Фамилия, имя</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Роль</TableHead>
+                <TableHead>Категория</TableHead>
                 <TableHead>Дата регистрации</TableHead>
                 <TableHead>Дата деактивации</TableHead>
                 <TableHead>Статус</TableHead>
@@ -213,6 +234,16 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
             <TableBody>
               {specialists.map((specialist) => {
                 const isActive = specialist.active !== false;
+                const getCategoryLabel = (category: string | undefined) => {
+                  switch (category) {
+                    case 'neuropsychologist': return 'Нейропсихолог';
+                    case 'psychologist': return 'Психолог';
+                    case 'speech_therapist': return 'Логопед';
+                    case 'special_educator': return 'Дефектолог';
+                    default: return '—';
+                  }
+                };
+                
                 return (
                   <TableRow 
                     key={specialist.id}
@@ -227,6 +258,14 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
                       <Badge variant={specialist.role === 'admin' ? 'default' : 'outline'}>
                         {specialist.role === 'admin' ? 'Администратор' : 'Специалист'}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {specialist.category && (
+                        <Badge variant="secondary">
+                          {getCategoryLabel(specialist.category)}
+                        </Badge>
+                      )}
+                      {!specialist.category && '—'}
                     </TableCell>
                     <TableCell>
                       {specialist.createdAt 

@@ -23,6 +23,16 @@ export function SpecialistCardView({ specialist, onBack, onUpdate }: SpecialistC
 
   const isActive = editedSpecialist.active !== false;
 
+  const getCategoryLabel = (category: string | undefined) => {
+    switch (category) {
+      case 'neuropsychologist': return 'Нейропсихолог';
+      case 'psychologist': return 'Психолог';
+      case 'speech_therapist': return 'Логопед';
+      case 'special_educator': return 'Дефектолог';
+      default: return null;
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -41,6 +51,11 @@ export function SpecialistCardView({ specialist, onBack, onUpdate }: SpecialistC
                   <Badge variant={editedSpecialist.role === 'admin' ? 'default' : 'outline'}>
                     {editedSpecialist.role === 'admin' ? 'Администратор' : 'Специалист'}
                   </Badge>
+                  {getCategoryLabel(editedSpecialist.category) && (
+                    <Badge variant="secondary">
+                      {getCategoryLabel(editedSpecialist.category)}
+                    </Badge>
+                  )}
                   <Badge 
                     variant={isActive ? 'default' : 'secondary'}
                     style={isActive ? { backgroundColor: '#22c55e', color: 'white' } : {}}
@@ -114,6 +129,27 @@ export function SpecialistCardView({ specialist, onBack, onUpdate }: SpecialistC
               <SelectContent>
                 <SelectItem value="specialist">Специалист</SelectItem>
                 <SelectItem value="admin">Администратор</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Категория</Label>
+            <Select
+              value={editedSpecialist.category || "none"}
+              onValueChange={(value: "neuropsychologist" | "psychologist" | "speech_therapist" | "special_educator" | "none") => 
+                setEditedSpecialist({...editedSpecialist, category: value === "none" ? undefined : value})
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Не указана</SelectItem>
+                <SelectItem value="neuropsychologist">Нейропсихолог</SelectItem>
+                <SelectItem value="psychologist">Психолог</SelectItem>
+                <SelectItem value="speech_therapist">Логопед</SelectItem>
+                <SelectItem value="special_educator">Дефектолог</SelectItem>
               </SelectContent>
             </Select>
           </div>

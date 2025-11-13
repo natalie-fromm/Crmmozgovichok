@@ -416,7 +416,7 @@ export function ChildCardView({ child, onBack, onUpdate, canEdit, statistics, is
                           <Input 
                             value={newSession.specialistName}
                             onChange={(e) => setNewSession({...newSession, specialistName: e.target.value})}
-                            placeholder="ФИО специалиста"
+                            placeholder="ФИ специалиста"
                           />
                         </div>
                       </div>

@@ -1,17 +1,21 @@
 import { useState } from "react";
-import { Child, ScheduleEntry, ChildStatistics, Specialist } from "../types";
-import { Button } from "./ui/button";
+import { Child, Specialist, ScheduleEntry, ChildStatistics, SpecialistSalary, MonthlyExpense, ExpenseSettings } from "../types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { Input } from "./ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Input } from "./ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Badge } from "./ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { ChildCardView } from "./ChildCardView";
 import { ScheduleView } from "./ScheduleView";
 import { NewChildForm } from "./NewChildForm";
 import { SpecialistsManagement } from "./SpecialistsManagement";
 import { KnowledgeBase } from "./KnowledgeBase";
-import { Users, Calendar, BarChart3, LogOut, Search, TrendingUp, DollarSign, Download, Plus, Archive, ArchiveRestore, UserCog, BookOpen } from "lucide-react";
+import { ExpenseManagement } from "./ExpenseManagement";
+import { MaterialsManagement } from "./MaterialsManagement";
+import { ScenarioManagement } from "./ScenarioManagement";
+import { Users, Calendar, BarChart3, LogOut, Search, TrendingUp, DollarSign, Download, Plus, Archive, ArchiveRestore, UserCog, BookOpen, UserPlus, FolderOpen, FileText } from "lucide-react";
 import { exportStatisticsToPDF } from "../utils/pdfExport";
 import logo from "figma:asset/a77c055ce1f22b1a1ba46b904d066b60abd7fc2a.png";
 
@@ -19,19 +23,44 @@ interface AdminDashboardProps {
   children: Child[];
   schedule: ScheduleEntry[];
   specialists: Specialist[];
+  salaries: SpecialistSalary[];
+  expenses: MonthlyExpense[];
+  expenseSettings: ExpenseSettings;
   onUpdateChild: (child: Child) => void;
   onUpdateSchedule: (schedule: ScheduleEntry[]) => void;
   onUpdateSpecialists: (specialists: Specialist[]) => void;
+  onUpdateSalaries: (salaries: SpecialistSalary[]) => void;
+  onUpdateExpenses: (expenses: MonthlyExpense[]) => void;
+  onUpdateExpenseSettings: (settings: ExpenseSettings) => void;
   onLogout: () => void;
   onAddChild?: (child: Child) => void;
 }
 
-export function AdminDashboard({ children, schedule, specialists, onUpdateChild, onUpdateSchedule, onUpdateSpecialists, onLogout, onAddChild }: AdminDashboardProps) {
+export function AdminDashboard({ 
+  children, 
+  schedule, 
+  specialists, 
+  salaries,
+  expenses,
+  expenseSettings,
+  onUpdateChild, 
+  onUpdateSchedule, 
+  onUpdateSpecialists, 
+  onUpdateSalaries,
+  onUpdateExpenses,
+  onUpdateExpenseSettings,
+  onLogout, 
+  onAddChild 
+}: AdminDashboardProps) {
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewChildForm, setShowNewChildForm] = useState(false);
   const [viewArchived, setViewArchived] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [selectedYear, setSelectedYear] = useState<string>('all');
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [selectedIncomeYear, setSelectedIncomeYear] = useState<string>('all');
+  const [selectedIncomeMonth, setSelectedIncomeMonth] = useState<string>('all');
 
   const calculateStatistics = (childId: string): ChildStatistics => {
     const childSchedule = schedule.filter(e => e.childId === childId);
@@ -85,6 +114,93 @@ export function AdminDashboard({ children, schedule, specialists, onUpdateChild,
 
   // Выбираем какие дети отображать
   const displayChildren = viewArchived ? archivedChildren : activeChildren;
+
+  // Фунция для расчета новых регистраций
+  const calculateNewRegistrations = () => {
+    let filteredByPeriod = children;
+    
+    if (selectedYear !== 'all') {
+      filteredByPeriod = filteredByPeriod.filter(child => {
+        const registrationYear = new Date(child.firstVisitDate).getFullYear().toString();
+        return registrationYear === selectedYear;
+      });
+      
+      if (selectedMonth !== 'all') {
+        filteredByPeriod = filteredByPeriod.filter(child => {
+          const registrationMonth = (new Date(child.firstVisitDate).getMonth() + 1).toString().padStart(2, '0');
+          return registrationMonth === selectedMonth;
+        });
+      }
+    }
+    
+    return filteredByPeriod.length;
+  };
+
+  // Получаем доступные года из дат регистрации
+  const availableYears = Array.from(new Set(
+    children.map(child => new Date(child.firstVisitDate).getFullYear().toString())
+  )).sort((a, b) => b.localeCompare(a));
+
+  // Функция для расчета дохода за период
+  const calculateIncome = () => {
+    let filteredSchedule = schedule.filter(entry => entry.status === 'completed');
+    
+    if (selectedIncomeYear !== 'all') {
+      filteredSchedule = filteredSchedule.filter(entry => {
+        const entryYear = new Date(entry.date).getFullYear().toString();
+        return entryYear === selectedIncomeYear;
+      });
+      
+      if (selectedIncomeMonth !== 'all') {
+        filteredSchedule = filteredSchedule.filter(entry => {
+          const entryMonth = (new Date(entry.date).getMonth() + 1).toString().padStart(2, '0');
+          return entryMonth === selectedIncomeMonth;
+        });
+      }
+    }
+    
+    return filteredSchedule.reduce((sum, entry) => sum + entry.paymentAmount, 0);
+  };
+
+  // Функция для расчета дохода по категориям специалистов
+  const calculateIncomeByCategory = () => {
+    let filteredSchedule = schedule.filter(entry => entry.status === 'completed');
+    
+    if (selectedIncomeYear !== 'all') {
+      filteredSchedule = filteredSchedule.filter(entry => {
+        const entryYear = new Date(entry.date).getFullYear().toString();
+        return entryYear === selectedIncomeYear;
+      });
+      
+      if (selectedIncomeMonth !== 'all') {
+        filteredSchedule = filteredSchedule.filter(entry => {
+          const entryMonth = (new Date(entry.date).getMonth() + 1).toString().padStart(2, '0');
+          return entryMonth === selectedIncomeMonth;
+        });
+      }
+    }
+    
+    const incomeByCategory: Record<string, number> = {
+      neuropsychologist: 0,
+      psychologist: 0,
+      speech_therapist: 0,
+      special_educator: 0,
+      uncategorized: 0
+    };
+    
+    filteredSchedule.forEach(entry => {
+      const specialist = specialists.find(s => s.id === entry.specialistId);
+      const category = specialist?.category || 'uncategorized';
+      incomeByCategory[category] = (incomeByCategory[category] || 0) + entry.paymentAmount;
+    });
+    
+    return incomeByCategory;
+  };
+
+  // Получаем доступные года из дат занятий
+  const availableIncomeYears = Array.from(new Set(
+    schedule.map(entry => new Date(entry.date).getFullYear().toString())
+  )).sort((a, b) => b.localeCompare(a));
 
   const handleArchiveToggle = (child: Child) => {
     const updatedChild = { ...child, archived: !child.archived };
@@ -165,6 +281,14 @@ export function AdminDashboard({ children, schedule, specialists, onUpdateChild,
             <TabsTrigger value="specialists" className="flex items-center gap-2">
               <UserCog className="w-4 h-4" />
               Специалисты
+            </TabsTrigger>
+            <TabsTrigger value="materials" className="flex items-center gap-2">
+              <FolderOpen className="w-4 h-4" />
+              Материалы
+            </TabsTrigger>
+            <TabsTrigger value="scenarios" className="flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              Сценарии
             </TabsTrigger>
             <TabsTrigger value="knowledgebase" className="flex items-center gap-2">
               <BookOpen className="w-4 h-4" />
@@ -361,6 +485,88 @@ export function AdminDashboard({ children, schedule, specialists, onUpdateChild,
 
               <Card>
                 <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Статистика регистраций клиентов</CardTitle>
+                      <CardDescription>Просмотр количества новых клиентов за выбранный период</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm">Год:</label>
+                      <Select 
+                        value={selectedYear} 
+                        onValueChange={(value) => {
+                          setSelectedYear(value);
+                          if (value === 'all') {
+                            setSelectedMonth('all');
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Выберите год" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Все года</SelectItem>
+                          {availableYears.map(year => (
+                            <SelectItem key={year} value={year}>{year}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {selectedYear !== 'all' && (
+                      <div className="space-y-2">
+                        <label className="text-sm">Месяц:</label>
+                        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Выберите месяц" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Все месяцы</SelectItem>
+                            <SelectItem value="01">Январь</SelectItem>
+                            <SelectItem value="02">Февраль</SelectItem>
+                            <SelectItem value="03">Март</SelectItem>
+                            <SelectItem value="04">Апрель</SelectItem>
+                            <SelectItem value="05">Май</SelectItem>
+                            <SelectItem value="06">Июнь</SelectItem>
+                            <SelectItem value="07">Июль</SelectItem>
+                            <SelectItem value="08">Август</SelectItem>
+                            <SelectItem value="09">Сентябрь</SelectItem>
+                            <SelectItem value="10">Октябрь</SelectItem>
+                            <SelectItem value="11">Ноябрь</SelectItem>
+                            <SelectItem value="12">Декабрь</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-4">
+                    <div className="flex items-center gap-3 p-6 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
+                      <div className="p-3 bg-white rounded-full">
+                        <UserPlus className="h-8 w-8 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedYear === 'all' 
+                            ? 'Всего клиентов зарегистрировано'
+                            : selectedMonth === 'all'
+                              ? `Зарегистрировано в ${selectedYear} году`
+                              : `Зарегистрировано в ${['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'][parseInt(selectedMonth) - 1]} ${selectedYear}`
+                          }
+                        </p>
+                        <div className="text-3xl mt-1">{calculateNewRegistrations()}</div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
                   <CardTitle>Подробная статистика по детям</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -426,6 +632,142 @@ export function AdminDashboard({ children, schedule, specialists, onUpdateChild,
                   </Button>
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Статистика дохода</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm">Год:</label>
+                      <Select 
+                        value={selectedIncomeYear} 
+                        onValueChange={(value) => {
+                          setSelectedIncomeYear(value);
+                          if (value === 'all') {
+                            setSelectedIncomeMonth('all');
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Выберите год" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Все года</SelectItem>
+                          {availableIncomeYears.map(year => (
+                            <SelectItem key={year} value={year}>{year}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {selectedIncomeYear !== 'all' && (
+                      <div className="space-y-2">
+                        <label className="text-sm">Месяц:</label>
+                        <Select value={selectedIncomeMonth} onValueChange={setSelectedIncomeMonth}>
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Выберите месяц" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Все месяцы</SelectItem>
+                            <SelectItem value="01">Январь</SelectItem>
+                            <SelectItem value="02">Февраль</SelectItem>
+                            <SelectItem value="03">Март</SelectItem>
+                            <SelectItem value="04">Апрель</SelectItem>
+                            <SelectItem value="05">Май</SelectItem>
+                            <SelectItem value="06">Июнь</SelectItem>
+                            <SelectItem value="07">Июль</SelectItem>
+                            <SelectItem value="08">Август</SelectItem>
+                            <SelectItem value="09">Сентябрь</SelectItem>
+                            <SelectItem value="10">Октябрь</SelectItem>
+                            <SelectItem value="11">Ноябрь</SelectItem>
+                            <SelectItem value="12">Декабрь</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-4">
+                    <div className="flex items-center gap-3 p-6 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
+                      <div className="p-3 bg-white rounded-full">
+                        <DollarSign className="h-8 w-8 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedIncomeYear === 'all' 
+                            ? 'Всего дохода'
+                            : selectedIncomeMonth === 'all'
+                              ? `Доход в ${selectedIncomeYear} году`
+                              : `Доход в ${['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'][parseInt(selectedIncomeMonth) - 1]} ${selectedIncomeYear}`
+                          }
+                        </p>
+                        <div className="text-3xl mt-1">{calculateIncome().toLocaleString('ru-RU')} ₽</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4">
+                    <h3 className="mb-3">Доход по категориям специалистов</h3>
+                    <div className="space-y-3">
+                      {(() => {
+                        const incomeByCategory = calculateIncomeByCategory();
+                        const getCategoryLabel = (category: string) => {
+                          switch (category) {
+                            case 'neuropsychologist': return 'Нейропсихологи';
+                            case 'psychologist': return 'Психологи';
+                            case 'speech_therapist': return 'Логопеды';
+                            case 'special_educator': return 'Дефектологи';
+                            case 'uncategorized': return 'Без категории';
+                            default: return category;
+                          }
+                        };
+
+                        const getCategoryColor = (category: string) => {
+                          switch (category) {
+                            case 'neuropsychologist': return 'from-purple-50 to-purple-100 border-purple-200';
+                            case 'psychologist': return 'from-green-50 to-green-100 border-green-200';
+                            case 'speech_therapist': return 'from-orange-50 to-orange-100 border-orange-200';
+                            case 'special_educator': return 'from-pink-50 to-pink-100 border-pink-200';
+                            case 'uncategorized': return 'from-gray-50 to-gray-100 border-gray-200';
+                            default: return 'from-blue-50 to-blue-100 border-blue-200';
+                          }
+                        };
+
+                        return Object.entries(incomeByCategory)
+                          .filter(([_, amount]) => amount > 0)
+                          .map(([category, amount]) => (
+                            <div 
+                              key={category} 
+                              className={`flex items-center justify-between p-4 bg-gradient-to-r ${getCategoryColor(category)} rounded-lg border`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-current"></div>
+                                <span>{getCategoryLabel(category)}</span>
+                              </div>
+                              <span className="font-semibold">{amount.toLocaleString('ru-RU')} ₽</span>
+                            </div>
+                          ));
+                      })()}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Статистика расходов */}
+              <ExpenseManagement
+                salaries={salaries}
+                expenses={expenses}
+                expenseSettings={expenseSettings}
+                specialists={specialists}
+                schedule={schedule}
+                onUpdateSalaries={onUpdateSalaries}
+                onUpdateExpenses={onUpdateExpenses}
+                onUpdateExpenseSettings={onUpdateExpenseSettings}
+                selectedYear={selectedIncomeYear}
+                selectedMonth={selectedIncomeMonth}
+              />
             </div>
           </TabsContent>
 
@@ -434,6 +776,14 @@ export function AdminDashboard({ children, schedule, specialists, onUpdateChild,
               specialists={specialists}
               onUpdateSpecialists={onUpdateSpecialists}
             />
+          </TabsContent>
+
+          <TabsContent value="materials">
+            <MaterialsManagement />
+          </TabsContent>
+
+          <TabsContent value="scenarios">
+            <ScenarioManagement />
           </TabsContent>
 
           <TabsContent value="knowledgebase">

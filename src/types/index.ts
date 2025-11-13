@@ -52,6 +52,7 @@ export interface Specialist {
   firstName: string;
   lastName: string;
   role: 'admin' | 'specialist';
+  category?: 'neuropsychologist' | 'psychologist' | 'speech_therapist' | 'special_educator'; // Категория специалиста
   email: string;
   password: string;
   active?: boolean; // флаг активности специалиста
@@ -71,6 +72,7 @@ export interface ScheduleEntry {
   specialistName: string;
   paymentAmount: number;
   paymentType?: 'single' | 'subscription'; // Разово или Абонемент
+  paymentMethod?: 'cash' | 'card'; // Нал или Безнал
   sessionsCompleted: number; // пройдено занятий по абонементу
   totalSessions: number; // всего занятий в абонементе
   subscriptionCost?: number; // стоимость абонемента
@@ -99,4 +101,29 @@ export interface Notification {
   type: 'schedule' | 'reminder' | 'info';
   read: boolean;
   createdAt: string;
+}
+
+export interface SpecialistSalary {
+  id: string;
+  specialistId: string;
+  specialistName: string;
+  month: string; // YYYY-MM
+  amount: number;
+}
+
+export interface MonthlyExpense {
+  id: string;
+  month: string; // YYYY-MM
+  rent: number; // аренда
+  materials: number; // материалы
+  stationery: number; // канцелярия
+  household: number; // хозяйственные
+  accounting: number; // бухгалтерия
+  security: number; // охрана
+  advertising: number; // реклама
+}
+
+export interface ExpenseSettings {
+  taxRate: number; // процент налога
+  acquiringRate: number; // процент комиссии за эквайринг
 }

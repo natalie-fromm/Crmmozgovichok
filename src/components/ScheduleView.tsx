@@ -38,6 +38,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
     specialistName: '',
     paymentAmount: 2500,
     paymentType: 'single' as 'single' | 'subscription',
+    paymentMethod: 'cash' as 'cash' | 'card',
     sessionsCompleted: 0,
     totalSessions: 8,
     subscriptionCost: 0,
@@ -161,6 +162,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
       specialistName: newEntry.specialistName,
       paymentAmount: newEntry.paymentAmount,
       paymentType: newEntry.paymentType,
+      paymentMethod: newEntry.paymentMethod,
       sessionsCompleted: newEntry.sessionsCompleted,
       totalSessions: newEntry.totalSessions,
       subscriptionCost: newEntry.subscriptionCost,
@@ -178,6 +180,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
       specialistName: '',
       paymentAmount: 2500,
       paymentType: 'single' as 'single' | 'subscription',
+      paymentMethod: 'cash' as 'cash' | 'card',
       sessionsCompleted: 0,
       totalSessions: 8,
       subscriptionCost: 0,
@@ -352,13 +355,19 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label>Оплачено</Label>
-                        <Input 
-                          type="number"
-                          placeholder="Сумма"
-                          value={newEntry.paymentAmount}
-                          onChange={(e) => setNewEntry({...newEntry, paymentAmount: parseInt(e.target.value)})}
-                        />
+                        <Label>Способ оплаты</Label>
+                        <Select
+                          value={newEntry.paymentMethod || 'cash'}
+                          onValueChange={(value) => setNewEntry({...newEntry, paymentMethod: value as 'cash' | 'card'})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Выберите способ" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="cash">Наличные</SelectItem>
+                            <SelectItem value="card">Безналичные</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -516,13 +525,19 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Оплачено</Label>
-                      <Input 
-                        type="number"
-                        placeholder="Сумма"
-                        value={editingEntry.paymentAmount}
-                        onChange={(e) => setEditingEntry({...editingEntry, paymentAmount: parseInt(e.target.value)})}
-                      />
+                      <Label>Способ оплаты</Label>
+                      <Select
+                        value={editingEntry.paymentMethod || 'cash'}
+                        onValueChange={(value) => setEditingEntry({...editingEntry, paymentMethod: value as 'cash' | 'card'})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Выберите способ" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cash">Наличные</SelectItem>
+                          <SelectItem value="card">Безналичные</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
