@@ -1,7 +1,18 @@
-import { Document, Page, pdfjs } from 'react-pdf';
-
-// Настройка PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+import { useState, useEffect, useMemo } from "react";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
+import { Label } from "./ui/label";
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Settings, 
+  Moon, 
+  Sun, 
+  Type,
+  X,
+  BookOpen
+} from "lucide-react";
+import { Slider } from "./ui/slider";
 
 interface DocumentReaderProps {
   fileName: string;
@@ -21,9 +32,6 @@ export function DocumentReader({ fileName, fileData, onClose }: DocumentReaderPr
   const [rawBytes, setRawBytes] = useState<Uint8Array | null>(null);
   const [isPDF, setIsPDF] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
-  const [numPages, setNumPages] = useState<number>(0);
-  const [pdfPageNumber, setPdfPageNumber] = useState<number>(1);
-  const [pdfScale, setPdfScale] = useState<number>(1.2);
   
   const linesPerPage = 25; // Количество строк на странице
 
@@ -210,27 +218,6 @@ export function DocumentReader({ fileName, fileData, onClose }: DocumentReaderPr
 
   // Если это PDF, показываем встроенный просмотрщик
   if (isPDF) {
-    const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-      setNumPages(numPages);
-      setPdfPageNumber(1);
-    };
-
-    const goToPreviousPdfPage = () => {
-      setPdfPageNumber((prev) => Math.max(prev - 1, 1));
-    };
-
-    const goToNextPdfPage = () => {
-      setPdfPageNumber((prev) => Math.min(prev + 1, numPages));
-    };
-
-    const zoomIn = () => {
-      setPdfScale((prev) => Math.min(prev + 0.2, 3));
-    };
-
-    const zoomOut = () => {
-      setPdfScale((prev) => Math.max(prev - 0.2, 0.5));
-    };
-
     return (
       <div className="fixed inset-0 z-50 bg-gray-800 flex flex-col">
         {/* Верхняя панель для PDF */}
@@ -242,74 +229,16 @@ export function DocumentReader({ fileName, fileData, onClose }: DocumentReaderPr
             <BookOpen className="w-5 h-5" />
             <h2 className="font-medium truncate max-w-md">{fileName}</h2>
           </div>
-          
-          <div className="flex items-center gap-3">
-            {/* Управление масштабом */}
-            <Button variant="ghost" size="icon" onClick={zoomOut}>
-              <ZoomOut className="w-5 h-5" />
-            </Button>
-            <span className="text-sm min-w-16 text-center">
-              {Math.round(pdfScale * 100)}%
-            </span>
-            <Button variant="ghost" size="icon" onClick={zoomIn}>
-              <ZoomIn className="w-5 h-5" />
-            </Button>
-            
-            {/* Навигация по страницам */}
-            <div className="flex items-center gap-2 ml-4">
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={goToPreviousPdfPage}
-                disabled={pdfPageNumber <= 1}
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-              <span className="text-sm min-w-24 text-center">
-                {pdfPageNumber} / {numPages || '...'}
-              </span>
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={goToNextPdfPage}
-                disabled={pdfPageNumber >= numPages}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
         </div>
 
-        {/* PDF просмотрщик с react-pdf */}
-        <div className="flex-1 overflow-auto flex items-start justify-center p-8">
+        {/* PDF просмотрщик через iframe */}
+        <div className="flex-1 overflow-hidden">
           {pdfBlobUrl && (
-            <Document
-              file={pdfBlobUrl}
-              onLoadSuccess={onDocumentLoadSuccess}
-              onLoadError={(error) => console.error('Error loading PDF:', error)}
-              loading={
-                <div className="text-white text-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                  Загрузка PDF...
-                </div>
-              }
-              error={
-                <div className="bg-white p-6 rounded-lg shadow-lg max-w-md">
-                  <p className="text-red-600 mb-4">Ошибка при загрузке PDF файла</p>
-                  <p className="text-sm text-gray-600">
-                    Файл может быть поврежден или иметь неподдерживаемый формат.
-                  </p>
-                </div>
-              }
-            >
-              <Page
-                pageNumber={pdfPageNumber}
-                scale={pdfScale}
-                renderTextLayer={false}
-                renderAnnotationLayer={false}
-                className="shadow-2xl"
-              />
-            </Document>
+            <iframe
+              src={pdfBlobUrl}
+              className="w-full h-full border-0"
+              title={fileName}
+            />
           )}
         </div>
       </div>
