@@ -10,6 +10,8 @@ import { Badge } from "./ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Calendar, Copy, Plus, ChevronLeft, ChevronRight, Send } from "lucide-react";
 import { Textarea } from "./ui/textarea";
+import { Alert, AlertDescription } from "./ui/alert";
+import { Checkbox } from "./ui/checkbox";
 
 interface ScheduleViewProps {
   schedule: ScheduleEntry[];
@@ -19,12 +21,20 @@ interface ScheduleViewProps {
 }
 
 export function ScheduleView({ schedule, specialists, children, onUpdateSchedule }: ScheduleViewProps) {
+  // Вспомогательная функция для форматирования даты в YYYY-MM-DD
+  const formatDateToYYYYMMDD = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     const today = new Date();
     const dayOfWeek = today.getDay();
     const monday = new Date(today);
     monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-    return monday.toISOString().split('T')[0];
+    return formatDateToYYYYMMDD(monday);
   });
 
   const [isAddingEntry, setIsAddingEntry] = useState(false);
@@ -36,13 +46,18 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
     time: '10:00',
     specialistId: '',
     specialistName: '',
-    paymentAmount: 2500,
-    paymentType: 'single' as 'single' | 'subscription',
+    paymentTotalAmount: 0,
+    paymentTypeDetailed: 'single' as 'single' | 'subscription4' | 'subscription8' | 'subscription12',
     paymentMethod: 'cash' as 'cash' | 'card',
+    paymentAmount: 0,
+    paymentType: 'single' as 'single' | 'subscription',
     sessionsCompleted: 0,
-    totalSessions: 8,
+    totalSessions: 1,
     subscriptionCost: 0,
-    note: ''
+    note: '',
+    paymentDueThisDay: false,
+    paymentDueType: 'single' as 'single' | 'subscription4' | 'subscription8' | 'subscription12',
+    paymentDueAmount: 0
   });
 
   const getWeekDates = () => {
@@ -51,7 +66,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
     for (let i = 0; i < 7; i++) {
       const date = new Date(start);
       date.setDate(start.getDate() + i);
-      dates.push(date.toISOString().split('T')[0]);
+      dates.push(formatDateToYYYYMMDD(date));
     }
     return dates;
   };
@@ -63,7 +78,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
   // Получаем текущую дату
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = formatDateToYYYYMMDD(today);
 
   // Определяем, является ли отображаемая неделя будущей
   const weekStartDate = new Date(currentWeekStart);
@@ -112,34 +127,76 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
   const goToPreviousWeek = () => {
     const date = new Date(currentWeekStart);
     date.setDate(date.getDate() - 7);
-    setCurrentWeekStart(date.toISOString().split('T')[0]);
+    setCurrentWeekStart(formatDateToYYYYMMDD(date));
   };
 
   const goToNextWeek = () => {
     const date = new Date(currentWeekStart);
     date.setDate(date.getDate() + 7);
-    setCurrentWeekStart(date.toISOString().split('T')[0]);
+    setCurrentWeekStart(formatDateToYYYYMMDD(date));
   };
 
   const copyWeekSchedule = () => {
     const nextWeekStart = new Date(currentWeekStart);
     nextWeekStart.setDate(nextWeekStart.getDate() + 7);
     
-    const copiedEntries = schedule
+    // Сортируем записи по дате и времени для правильной последовательности
+    const entriesToCopy = schedule
       .filter(entry => weekDates.includes(entry.date))
-      .map(entry => {
-        const entryDate = new Date(entry.date);
-        const daysDiff = (entryDate.getTime() - new Date(currentWeekStart).getTime()) / (1000 * 60 * 60 * 24);
-        const newDate = new Date(nextWeekStart);
-        newDate.setDate(nextWeekStart.getDate() + daysDiff);
-        
-        return {
-          ...entry,
-          id: `${entry.id}-copy-${Date.now()}`,
-          date: newDate.toISOString().split('T')[0],
-          status: 'scheduled' as const
-        };
+      .sort((a, b) => {
+        const dateCompare = a.date.localeCompare(b.date);
+        if (dateCompare !== 0) return dateCompare;
+        return a.time.localeCompare(b.time);
       });
+    
+    // Для каждого клиента находим максимальное значение sessionsCompleted в копируемой неделе
+    const clientMaxSessions: { [childId: string]: number } = {};
+    entriesToCopy.forEach(entry => {
+      if (entry.paymentType === 'subscription') {
+        if (!(entry.childId in clientMaxSessions)) {
+          clientMaxSessions[entry.childId] = entry.sessionsCompleted;
+        } else {
+          clientMaxSessions[entry.childId] = Math.max(
+            clientMaxSessions[entry.childId], 
+            entry.sessionsCompleted
+          );
+        }
+      }
+    });
+    
+    // Храним счетчики для каждого клиента (начинаем с макс. значения + 1)
+    const clientSessionCounters: { [childId: string]: number } = {};
+    
+    const copiedEntries = entriesToCopy.map(entry => {
+      const entryDate = new Date(entry.date);
+      const daysDiff = (entryDate.getTime() - new Date(currentWeekStart).getTime()) / (1000 * 60 * 60 * 24);
+      const newDate = new Date(nextWeekStart);
+      newDate.setDate(nextWeekStart.getDate() + daysDiff);
+      
+      // Если это абонемент, увеличиваем прогресс
+      let updatedSessionsCompleted = entry.sessionsCompleted;
+      if (entry.paymentType === 'subscription') {
+        // Инициализируем счетчик для клиента, если его еще нет
+        if (!(entry.childId in clientSessionCounters)) {
+          // Начинаем с максимал��ного значения из текущей недели + 1
+          clientSessionCounters[entry.childId] = (clientMaxSessions[entry.childId] || 0) + 1;
+        }
+        
+        // Используем текущий счетчик для этого клиента
+        updatedSessionsCompleted = clientSessionCounters[entry.childId];
+        
+        // Увечиваем счетчик для следующего занятия этого клиента
+        clientSessionCounters[entry.childId]++;
+      }
+      
+      return {
+        ...entry,
+        id: `${entry.id}-copy-${Date.now()}-${Math.random()}`,
+        date: formatDateToYYYYMMDD(newDate),
+        status: 'scheduled' as const,
+        sessionsCompleted: updatedSessionsCompleted
+      };
+    });
     
     onUpdateSchedule([...schedule, ...copiedEntries]);
     goToNextWeek();
@@ -167,7 +224,10 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
       totalSessions: newEntry.totalSessions,
       subscriptionCost: newEntry.subscriptionCost,
       status: 'scheduled',
-      note: newEntry.note
+      note: newEntry.note,
+      paymentDueThisDay: newEntry.paymentDueThisDay,
+      paymentDueType: newEntry.paymentDueType,
+      paymentDueAmount: newEntry.paymentDueAmount
     };
     onUpdateSchedule([...schedule, entry]);
     setIsAddingEntry(false);
@@ -178,13 +238,18 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
       time: '10:00',
       specialistId: '',
       specialistName: '',
-      paymentAmount: 2500,
-      paymentType: 'single' as 'single' | 'subscription',
+      paymentTotalAmount: 0,
+      paymentTypeDetailed: 'single' as 'single' | 'subscription4' | 'subscription8' | 'subscription12',
       paymentMethod: 'cash' as 'cash' | 'card',
+      paymentAmount: 0,
+      paymentType: 'single' as 'single' | 'subscription',
       sessionsCompleted: 0,
-      totalSessions: 8,
+      totalSessions: 1,
       subscriptionCost: 0,
-      note: ''
+      note: '',
+      paymentDueThisDay: false,
+      paymentDueType: 'single' as 'single' | 'subscription4' | 'subscription8' | 'subscription12',
+      paymentDueAmount: 0
     });
   };
 
@@ -224,7 +289,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
   const sendTomorrowSchedule = () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const tomorrowStr = formatDateToYYYYMMDD(tomorrow);
     
     const scheduleSpecialists = [...new Set(schedule.filter(e => e.date === tomorrowStr).map(e => e.specialistName))];
     
@@ -238,7 +303,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
+        <CardHeader className="sticky top-0 z-10 bg-white border-b">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Calendar className="w-5 h-5" />
@@ -260,10 +325,10 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                     Добавить занятие
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Новое занятие в расписании</DialogTitle>
-                    <DialogDescription>Добавьте новое занятие в расписание.</DialogDescription>
+                    <DialogDescription>Добавьте новое занятие в расписание (можно добавить занятие в любую дату, включая прошедшие).</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
@@ -338,22 +403,42 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    
+                    {/* Секция информации об оплате */}
+                    <div className="space-y-3 border-t pt-4">
+                      <Alert className="bg-blue-50 border-blue-200">
+                        <AlertDescription>
+                          💰 Информация об оплате занятия
+                        </AlertDescription>
+                      </Alert>
+                      
                       <div className="space-y-2">
                         <Label>Тип оплаты</Label>
                         <Select
-                          value={newEntry.paymentType}
-                          onValueChange={(value) => setNewEntry({...newEntry, paymentType: value as 'single' | 'subscription'})}
+                          value={newEntry.paymentTypeDetailed}
+                          onValueChange={(value) => {
+                            const type = value as 'single' | 'subscription4' | 'subscription8' | 'subscription12';
+                            const sessions = type === 'single' ? 1 : type === 'subscription4' ? 4 : type === 'subscription8' ? 8 : 12;
+                            setNewEntry({
+                              ...newEntry, 
+                              paymentTypeDetailed: type,
+                              totalSessions: sessions,
+                              paymentType: type === 'single' ? 'single' : 'subscription'
+                            });
+                          }}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Выберите тип" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="single">Разово</SelectItem>
-                            <SelectItem value="subscription">Абонемент</SelectItem>
+                            <SelectItem value="single">Разовая</SelectItem>
+                            <SelectItem value="subscription4">Абонемент на 4 занятия</SelectItem>
+                            <SelectItem value="subscription8">Абонемент на 8 занятий</SelectItem>
+                            <SelectItem value="subscription12">Абонемент на 12 занятий</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
+
                       <div className="space-y-2">
                         <Label>Способ оплаты</Label>
                         <Select
@@ -369,42 +454,114 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                           </SelectContent>
                         </Select>
                       </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
+
                       <div className="space-y-2">
-                        <Label>Абонемент (пройдено / всего)</Label>
-                        <div className="flex gap-2">
-                          <Input 
-                            type="number"
-                            value={newEntry.sessionsCompleted}
-                            onChange={(e) => setNewEntry({...newEntry, sessionsCompleted: parseInt(e.target.value)})}
-                            className="w-20"
-                          />
-                          <span className="flex items-center">/</span>
-                          <Input 
-                            type="number"
-                            value={newEntry.totalSessions}
-                            onChange={(e) => setNewEntry({...newEntry, totalSessions: parseInt(e.target.value)})}
-                            className="w-20"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Стоимость</Label>
+                        <Label>Сумма оплаты</Label>
                         <Input 
                           type="number"
-                          placeholder="Стоимость абонемента"
-                          value={newEntry.subscriptionCost}
-                          onChange={(e) => setNewEntry({...newEntry, subscriptionCost: parseInt(e.target.value)})}
+                          placeholder="Введите сумму оплаты"
+                          value={newEntry.paymentTotalAmount}
+                          onChange={(e) => {
+                            const totalAmount = parseInt(e.target.value) || 0;
+                            const sessions = newEntry.totalSessions;
+                            const perSessionCost = sessions > 0 ? Math.round(totalAmount / sessions) : 0;
+                            
+                            setNewEntry({
+                              ...newEntry, 
+                              paymentTotalAmount: totalAmount,
+                              paymentAmount: newEntry.paymentType === 'single' ? totalAmount : perSessionCost,
+                              subscriptionCost: newEntry.paymentType === 'subscription' ? totalAmount : 0
+                            });
+                          }}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Стоимость занятия</Label>
+                        <Input 
+                          type="number"
+                          disabled
+                          value={
+                            newEntry.paymentTypeDetailed === 'single' 
+                              ? newEntry.paymentTotalAmount 
+                              : Math.round(newEntry.paymentTotalAmount / newEntry.totalSessions) || 0
+                          }
+                          className="bg-gray-100 cursor-not-allowed"
                         />
                       </div>
                     </div>
+                    
+                    {/* Секция напоминания об оплате */}
+                    <div className="space-y-3 border-t pt-4">
+                      <Alert className="bg-orange-50 border-orange-200">
+                        <AlertDescription>
+                          🔔 Напоминание специалисту об ожидаемой оплате
+                        </AlertDescription>
+                      </Alert>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="paymentDue"
+                          checked={newEntry.paymentDueThisDay}
+                          onCheckedChange={(checked) => setNewEntry({
+                            ...newEntry, 
+                            paymentDueThisDay: checked as boolean
+                          })}
+                        />
+                        <label
+                          htmlFor="paymentDue"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          Клиент должен внести оплату в этот день
+                        </label>
+                      </div>
+                      
+                      {newEntry.paymentDueThisDay && (
+                        <div className="space-y-3 pl-6">
+                          <div className="space-y-2">
+                            <Label>Тип ожидаемой оплаты</Label>
+                            <Select
+                              value={newEntry.paymentDueType}
+                              onValueChange={(value) => setNewEntry({
+                                ...newEntry, 
+                                paymentDueType: value as 'single' | 'subscription4' | 'subscription8' | 'subscription12'
+                              })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="single">Разовая оплата</SelectItem>
+                                <SelectItem value="subscription4">Абонемент на 4 занятия</SelectItem>
+                                <SelectItem value="subscription8">Абонемент на 8 занятий</SelectItem>
+                                <SelectItem value="subscription12">Абонемент на 12 занятий</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label>Сумма к оплате</Label>
+                            <Input 
+                              type="number"
+                              placeholder="Введите ожидаемую сумму"
+                              value={newEntry.paymentDueAmount}
+                              onChange={(e) => setNewEntry({
+                                ...newEntry, 
+                                paymentDueAmount: parseInt(e.target.value) || 0
+                              })}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
                     <div className="space-y-2">
                       <Label>Примечание</Label>
                       <Textarea
                         value={newEntry.note}
                         onChange={(e) => setNewEntry({...newEntry, note: e.target.value})}
                         className="h-20"
+                        placeholder="Дополнительные заметки о занятии"
                       />
                     </div>
                     <Button onClick={addEntry} className="w-full">Добавить</Button>
@@ -429,7 +586,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
 
           {/* Dialog для редактирования занятия */}
           <Dialog open={!!editingEntry} onOpenChange={(open) => !open && setEditingEntry(null)}>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Редактирование занятия</DialogTitle>
                 <DialogDescription>Внесите изменения в занятие.</DialogDescription>
@@ -508,67 +665,125 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+
+                  {/* Секция информации об оплате */}
+                  <div className="space-y-3 border-t pt-4">
+                    <Alert className="bg-blue-50 border-blue-200">
+                      <AlertDescription>
+                        💰 Информация об оплате занятия
+                      </AlertDescription>
+                    </Alert>
+
                     <div className="space-y-2">
                       <Label>Тип оплаты</Label>
                       <Select
-                        value={editingEntry.paymentType}
-                        onValueChange={(value) => setEditingEntry({...editingEntry, paymentType: value as 'single' | 'subscription'})}
+                        value={editingEntry.paymentTypeDetailed}
+                        onValueChange={(value) => setEditingEntry({...editingEntry, paymentTypeDetailed: value as 'single' | 'subscription4' | 'subscription8' | 'subscription12'})}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Выберите тип" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="single">Разово</SelectItem>
-                          <SelectItem value="subscription">Абонемент</SelectItem>
+                          <SelectItem value="single">Разовая оплата</SelectItem>
+                          <SelectItem value="subscription4">Абонемент на 4 занятия</SelectItem>
+                          <SelectItem value="subscription8">Абонемент на 8 занятий</SelectItem>
+                          <SelectItem value="subscription12">Абонемент на 12 занятий</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {editingEntry.paymentType === 'single' ? (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Способ оплаты</Label>
+                          <Select
+                            value={editingEntry.paymentMethod || 'cash'}
+                            onValueChange={(value) => setEditingEntry({...editingEntry, paymentMethod: value as 'cash' | 'card'})}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Выберите способ" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="cash">Наличные</SelectItem>
+                              <SelectItem value="card">Безналичные</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Стоимость занятия</Label>
+                          <Input 
+                            type="number"
+                            placeholder="Введите стоимость"
+                            value={editingEntry.paymentAmount}
+                            onChange={(e) => setEditingEntry({...editingEntry, paymentAmount: parseInt(e.target.value) || 0})}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label>Абонемент (пройдено / всего)</Label>
+                          <div className="flex gap-2">
+                            <Input 
+                              type="number"
+                              value={editingEntry.sessionsCompleted}
+                              onChange={(e) => setEditingEntry({...editingEntry, sessionsCompleted: parseInt(e.target.value)})}
+                              className="w-20"
+                            />
+                            <span className="flex items-center">/</span>
+                            <Input 
+                              type="number"
+                              value={editingEntry.totalSessions}
+                              onChange={(e) => setEditingEntry({...editingEntry, totalSessions: parseInt(e.target.value)})}
+                              className="w-20"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Способ оплаты</Label>
+                          <Select
+                            value={editingEntry.paymentMethod || 'cash'}
+                            onValueChange={(value) => setEditingEntry({...editingEntry, paymentMethod: value as 'cash' | 'card'})}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Выберите способ" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="cash">Наличные</SelectItem>
+                              <SelectItem value="card">Безналичные</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Стоимость абонемента</Label>
+                          <Input 
+                            type="number"
+                            placeholder="Введите стоимость"
+                            value={editingEntry.subscriptionCost}
+                            onChange={(e) => setEditingEntry({...editingEntry, subscriptionCost: parseInt(e.target.value)})}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Сумма оплаты */}
                     <div className="space-y-2">
-                      <Label>Способ оплаты</Label>
-                      <Select
-                        value={editingEntry.paymentMethod || 'cash'}
-                        onValueChange={(value) => setEditingEntry({...editingEntry, paymentMethod: value as 'cash' | 'card'})}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Выберите способ" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cash">Наличные</SelectItem>
-                          <SelectItem value="card">Безналичные</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Абонемент (пройдено / всего)</Label>
-                      <div className="flex gap-2">
-                        <Input 
-                          type="number"
-                          value={editingEntry.sessionsCompleted}
-                          onChange={(e) => setEditingEntry({...editingEntry, sessionsCompleted: parseInt(e.target.value)})}
-                          className="w-20"
-                        />
-                        <span className="flex items-center">/</span>
-                        <Input 
-                          type="number"
-                          value={editingEntry.totalSessions}
-                          onChange={(e) => setEditingEntry({...editingEntry, totalSessions: parseInt(e.target.value)})}
-                          className="w-20"
-                        />
+                      <Label>Сумма оплаты</Label>
+                      <div className="p-3 bg-gray-50 border rounded-md">
+                        <span className="text-lg font-semibold">
+                          {editingEntry.paymentType === 'single' 
+                            ? `${editingEntry.paymentAmount || 0} ₽` 
+                            : `${editingEntry.subscriptionCost || 0} ₽`}
+                        </span>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {editingEntry.paymentType === 'single' 
+                            ? 'Разовое занятие' 
+                            : `Абонемент на ${editingEntry.totalSessions} занятий`}
+                        </p>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Стоимость</Label>
-                      <Input 
-                        type="number"
-                        placeholder="Стоимость абонемента"
-                        value={editingEntry.subscriptionCost}
-                        onChange={(e) => setEditingEntry({...editingEntry, subscriptionCost: parseInt(e.target.value)})}
-                      />
-                    </div>
                   </div>
+                  
                   <div className="space-y-2">
                     <Label>Примечание</Label>
                     <Textarea
@@ -577,6 +792,64 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                       className="h-20"
                     />
                   </div>
+                  
+                  {/* Секция оплаты */}
+                  <div className="space-y-3 border-t pt-4">
+                    <Alert className="bg-blue-50 border-blue-200">
+                      <AlertDescription>
+                        ℹ️ Клиент должен произвести оплату в день занятия
+                      </AlertDescription>
+                    </Alert>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="isPaid"
+                        checked={editingEntry.isPaid || false}
+                        onCheckedChange={(checked) => {
+                          setEditingEntry({
+                            ...editingEntry, 
+                            isPaid: checked as boolean,
+                            paidDate: checked ? formatDateToYYYYMMDD(new Date()) : undefined
+                          });
+                        }}
+                      />
+                      <label
+                        htmlFor="isPaid"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Оплата получена
+                      </label>
+                    </div>
+                    
+                    {editingEntry.isPaid && (
+                      <div className="grid grid-cols-2 gap-4 pl-6">
+                        <div className="space-y-2">
+                          <Label>Внесенная сумма</Label>
+                          <Input 
+                            type="number"
+                            placeholder="Введите сумму"
+                            value={editingEntry.paidAmount || ''}
+                            onChange={(e) => setEditingEntry({
+                              ...editingEntry, 
+                              paidAmount: e.target.value ? parseInt(e.target.value) : undefined
+                            })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Дата оплаты</Label>
+                          <Input 
+                            type="date"
+                            value={editingEntry.paidDate || formatDateToYYYYMMDD(new Date())}
+                            onChange={(e) => setEditingEntry({
+                              ...editingEntry, 
+                              paidDate: e.target.value
+                            })}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
                   <div className="space-y-2">
                     <Label>Статус</Label>
                     <Select
@@ -684,13 +957,13 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                                       </div>
                                     )}
                                     <div className="mt-1 flex items-center justify-between">
-                                      {entry.paymentType === 'subscription' && entry.sessionsCompleted > 0 && (
+                                      {entry.paymentType === 'subscription' && (
                                         <Badge variant="outline" className="text-xs">
                                           {entry.sessionsCompleted}/{entry.totalSessions}
                                         </Badge>
                                       )}
-                                      <span className={entry.paymentType !== 'subscription' || entry.sessionsCompleted === 0 ? 'ml-auto' : ''}>
-                                        {entry.paymentAmount}₽
+                                      <span className={entry.paymentType !== 'subscription' ? 'ml-auto' : ''}>
+                                        {entry.paymentType === 'subscription' ? entry.subscriptionCost : entry.paymentAmount}₽
                                       </span>
                                     </div>
                                     <div className="mt-2" onClick={(e) => e.stopPropagation()}>

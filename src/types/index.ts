@@ -80,6 +80,13 @@ export interface ScheduleEntry {
   absenceReason?: string;
   absenceCategory?: 'sick' | 'family' | 'other' | 'cancelled';
   note?: string; // примечание к занятию
+  isPaid?: boolean; // оплачено ли занятие
+  paidAmount?: number; // фактически внесенная сумма
+  paidDate?: string; // дата оплаты
+  // Напоминание об оплате (отдельно от факта проведения занятия)
+  paymentDueThisDay?: boolean; // требуется внесение оплаты в этот день
+  paymentDueType?: 'single' | 'subscription4' | 'subscription8' | 'subscription12'; // тип ожидаемой оплаты
+  paymentDueAmount?: number; // сумма ожидаемой оплаты
 }
 
 export interface ChildStatistics {
