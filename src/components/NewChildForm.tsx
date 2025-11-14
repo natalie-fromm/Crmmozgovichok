@@ -1,18 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Child } from "../types";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { X } from "lucide-react";
+import { X, RefreshCw } from "lucide-react";
+import { Alert, AlertDescription } from "./ui/alert";
 
 interface NewChildFormProps {
   onSave: (child: Child) => void;
   onCancel: () => void;
+  existingChildren?: Child[];
 }
 
-export function NewChildForm({ onSave, onCancel }: NewChildFormProps) {
+export function NewChildForm({ onSave, onCancel, existingChildren = [] }: NewChildFormProps) {
   const [formData, setFormData] = useState({
     code: "",
     lastName: "",
@@ -28,6 +30,84 @@ export function NewChildForm({ onSave, onCancel }: NewChildFormProps) {
     otherActivities: "",
     interests: "",
   });
+
+  const [error, setError] = useState<string | null>(null);
+  const [codeWarning, setCodeWarning] = useState<string | null>(null);
+
+  // Автоматический расчет возраста при изменении даты рождения
+  useEffect(() => {
+    if (formData.birthDate) {
+      const today = new Date();
+      const age = calculateAgeOnDate(formData.birthDate, today.toISOString().split('T')[0]);
+      setFormData(prev => ({ ...prev, age: age.toString() }));
+    }
+  }, [formData.birthDate]);
+
+  // Функция для получения порядкового номера буквы в русском алфавите
+  const getAlphabetPosition = (letter: string): number => {
+    const alphabet = 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ';
+    const upperLetter = letter.toUpperCase();
+    const position = alphabet.indexOf(upperLetter);
+    return position >= 0 ? position + 1 : 0;
+  };
+
+  // Функция для вычисления возраста на дату обращения
+  const calculateAgeOnDate = (birthDate: string, referenceDate: string): number => {
+    const birth = new Date(birthDate);
+    const reference = new Date(referenceDate);
+    let age = reference.getFullYear() - birth.getFullYear();
+    const monthDiff = reference.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && reference.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Функция генерации шифра
+  const generateCode = () => {
+    if (!formData.lastName || !formData.firstName || !formData.birthDate || !formData.firstVisitDate) {
+      setCodeWarning("Для генерации шифра заполните: Фамилию, Имя, Дату рождения и Дату первого обращения");
+      return;
+    }
+
+    setCodeWarning(null);
+    setError(null);
+
+    // 1. Первая буква фамилии
+    const lastNameFirstLetter = getAlphabetPosition(formData.lastName[0]);
+    
+    // 2. Первая буква имени
+    const firstNameFirstLetter = getAlphabetPosition(formData.firstName[0]);
+    
+    // 3. Возраст на дату обращения
+    const ageOnFirstVisit = calculateAgeOnDate(formData.birthDate, formData.firstVisitDate);
+    
+    // 4. День рождения (число месяца)
+    const birthDay = new Date(formData.birthDate).getDate();
+    
+    // Базовый шифр
+    let code = `${lastNameFirstLetter}-${firstNameFirstLetter}-${ageOnFirstVisit}-${birthDay}`;
+    
+    // Проверяем уникальность
+    const codeExists = existingChildren.some(child => child.code === code);
+    
+    if (codeExists) {
+      // Добавляем день первого обращения
+      const firstVisitDay = new Date(formData.firstVisitDate).getDate();
+      code = `${code}-${firstVisitDay}`;
+      
+      // Проверяем еще раз
+      const extendedCodeExists = existingChildren.some(child => child.code === code);
+      
+      if (extendedCodeExists) {
+        setCodeWarning(`⚠️ Шифр ${code} уже существует. Рекомендуется добавить дополнительный идентификатор вручную.`);
+      } else {
+        setCodeWarning(`ℹ️ Базовый шифр уже существовал. Добавлен день первого обращения: ${code}`);
+      }
+    }
+    
+    setFormData({ ...formData, code });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +134,12 @@ export function NewChildForm({ onSave, onCancel }: NewChildFormProps) {
       interests: formData.interests,
     };
 
+    // Проверка на уникальность кода
+    if (existingChildren.some(child => child.code === newChild.code)) {
+      setError("Дети с таким кодом уже существует. Пожалуйста, выберите другой код.");
+      return;
+    }
+
     onSave(newChild);
   };
 
@@ -64,7 +150,7 @@ export function NewChildForm({ onSave, onCancel }: NewChildFormProps) {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Создание новой карточки</CardTitle>
-              <CardDescription>Заполните информацию о ребенке</CardDescription>
+              <CardDescription>Заполните информацию о клиенте</CardDescription>
             </div>
             <Button variant="ghost" size="icon" onClick={onCancel}>
               <X className="w-4 h-4" />
@@ -83,9 +169,18 @@ export function NewChildForm({ onSave, onCancel }: NewChildFormProps) {
                   onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                   placeholder="Например: М001"
                 />
+                <Button type="button" variant="outline" size="sm" onClick={generateCode} className="w-full mt-2">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Сгенерировать шифр
+                </Button>
+                {codeWarning && (
+                  <Alert className="bg-amber-50 border-amber-200 mt-2">
+                    <AlertDescription className="text-xs">{codeWarning}</AlertDescription>
+                  </Alert>
+                )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Фамилия ребенка *</Label>
+                <Label htmlFor="lastName">Фамилия клиента *</Label>
                 <Input
                   id="lastName"
                   required
@@ -98,7 +193,7 @@ export function NewChildForm({ onSave, onCancel }: NewChildFormProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName">Имя ребенка *</Label>
+                <Label htmlFor="firstName">Имя клиента *</Label>
                 <Input
                   id="firstName"
                   required
@@ -108,7 +203,7 @@ export function NewChildForm({ onSave, onCancel }: NewChildFormProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="middleName">Отчество ребенка</Label>
+                <Label htmlFor="middleName">Отчество клиента</Label>
                 <Input
                   id="middleName"
                   value={formData.middleName}
@@ -128,8 +223,9 @@ export function NewChildForm({ onSave, onCancel }: NewChildFormProps) {
                   min="1"
                   max="18"
                   value={formData.age}
-                  onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-                  placeholder="7"
+                  disabled
+                  className="bg-gray-100 cursor-not-allowed"
+                  placeholder="Заполнится автоматически"
                 />
               </div>
               <div className="space-y-2">
@@ -204,21 +300,28 @@ export function NewChildForm({ onSave, onCancel }: NewChildFormProps) {
                 id="otherActivities"
                 value={formData.otherActivities}
                 onChange={(e) => setFormData({ ...formData, otherActivities: e.target.value })}
-                placeholder="Какие другие занятия посещает ребенок..."
+                placeholder="Какие другие занятия посещает клиент..."
                 rows={3}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="interests">Интересы ребенка</Label>
+              <Label htmlFor="interests">Интересы клиента</Label>
               <Textarea
                 id="interests"
                 value={formData.interests}
                 onChange={(e) => setFormData({ ...formData, interests: e.target.value })}
-                placeholder="Что интересует ребенка..."
+                placeholder="Что интересует клиента..."
                 rows={3}
               />
             </div>
+
+            {error && (
+              <Alert variant="destructive">
+                <RefreshCw className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
             <div className="flex gap-2 justify-end">
               <Button type="button" variant="outline" onClick={onCancel}>

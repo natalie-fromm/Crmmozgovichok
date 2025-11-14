@@ -240,6 +240,7 @@ export function AdminDashboard({
         <NewChildForm
           onSave={handleAddChild}
           onCancel={() => setShowNewChildForm(false)}
+          existingChildren={children}
         />
       )}
 

@@ -87,6 +87,11 @@ export interface ScheduleEntry {
   paymentDueThisDay?: boolean; // требуется внесение оплаты в этот день
   paymentDueType?: 'single' | 'subscription4' | 'subscription8' | 'subscription12'; // тип ожидаемой оплаты
   paymentDueAmount?: number; // сумма ожидаемой оплаты
+  paymentTypeDetailed?: 'single' | 'subscription4' | 'subscription8' | 'subscription12'; // детальный тип оплаты
+  paymentTotalAmount?: number; // общая сумма оплаты (для расчета стоимости занятия)
+  // Предоплаченный абонемент
+  prepaidSubscriptionType?: 4 | 8 | 12; // тип предоплаченного абонемента (количество занятий)
+  prepaidSubscriptionActivated?: boolean; // флаг активации предоплаченного абонемента
 }
 
 export interface ChildStatistics {
