@@ -4,9 +4,18 @@ import { mockChildren, mockSpecialists, mockSchedule } from './data/mockData';
 import { LoginPage } from './components/LoginPage';
 import { AdminDashboard } from './components/AdminDashboard';
 import { SpecialistDashboard } from './components/SpecialistDashboard';
+import { NotificationHistoryDemo } from './components/NotificationHistoryDemo';
+import { PersonalNotificationDemo } from './components/PersonalNotificationDemo';
 import { useLocalStorage } from './hooks/useLocalStorage';
 
 export default function App() {
+  // Демонстрация интерфейса "История оповещений"
+  // Раскомментируйте строку ниже, чтобы увидеть демонстрацию
+  // return <NotificationHistoryDemo />;
+  
+  // Демонстрация интерфейса "Персональная рассылка"
+  // return <PersonalNotificationDemo />;
+
   const [currentUser, setCurrentUser] = useState<Specialist | null>(null);
   const [children, setChildren] = useLocalStorage<Child[]>('crm_children', mockChildren);
   const [schedule, setSchedule] = useLocalStorage<ScheduleEntry[]>('crm_schedule', mockSchedule);

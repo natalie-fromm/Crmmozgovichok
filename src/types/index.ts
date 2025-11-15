@@ -5,7 +5,9 @@ export interface Child {
   age: number;
   birthDate: string; // дата рождения в формате YYYY-MM-DD
   motherName: string;
+  motherPhone?: string; // телефон матери
   fatherName: string;
+  fatherPhone?: string; // телефон отца
   firstVisitDate: string;
   primaryComplaints: string;
   additionalComplaints: string[];
@@ -15,6 +17,18 @@ export interface Child {
   diagnosticInfo?: string; // значимое из диагностики
   otherActivities?: string; // посещение иных занятий
   interests?: string; // интересы ребенка
+  notificationHistory?: NotificationHistoryEntry[]; // история оповещений
+}
+
+export interface NotificationHistoryEntry {
+  id: string;
+  date: string; // дата отправки
+  time: string; // время отправки
+  messenger: 'whatsapp' | 'telegram' | 'vk'; // мессенджер
+  recipientName: string; // имя получателя
+  recipientPhone: string; // телефон получателя
+  message: string; // текст сообщения
+  sentBy: string; // кто отправил (auto или имя специалиста)
 }
 
 export interface Session {
@@ -70,6 +84,7 @@ export interface ScheduleEntry {
   time: string;
   specialistId: string;
   specialistName: string;
+  serviceType?: 'neuro-diagnosis' | 'neuro-session' | 'psycho-diagnosis' | 'psycho-session'; // Тип услуги
   paymentAmount: number;
   paymentType?: 'single' | 'subscription'; // Разово или Абонемент
   paymentMethod?: 'cash' | 'card'; // Нал или Безнал

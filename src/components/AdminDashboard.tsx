@@ -15,7 +15,8 @@ import { KnowledgeBase } from "./KnowledgeBase";
 import { ExpenseManagement } from "./ExpenseManagement";
 import { MaterialsManagement } from "./MaterialsManagement";
 import { ScenarioManagement } from "./ScenarioManagement";
-import { Users, Calendar, BarChart3, LogOut, Search, TrendingUp, DollarSign, Download, Plus, Archive, ArchiveRestore, UserCog, BookOpen, UserPlus, FolderOpen, FileText } from "lucide-react";
+import { NotificationsManagement } from "./NotificationsManagement";
+import { Users, Calendar, BarChart3, LogOut, Search, TrendingUp, DollarSign, Download, Plus, Archive, ArchiveRestore, UserCog, BookOpen, UserPlus, FolderOpen, FileText, Bell } from "lucide-react";
 import { exportStatisticsToPDF } from "../utils/pdfExport";
 import logo from "figma:asset/a77c055ce1f22b1a1ba46b904d066b60abd7fc2a.png";
 
@@ -214,6 +215,11 @@ export function AdminDashboard({
     setShowNewChildForm(false);
   };
 
+  const handleUpdateChild = (updatedChild: Child) => {
+    onUpdateChild(updatedChild);
+    setSelectedChild(updatedChild);
+  };
+
   if (selectedChild) {
     const stats = calculateStatistics(selectedChild.id);
     const canEdit = !selectedChild.archived; // Архивные карточки только для чтения
@@ -275,9 +281,9 @@ export function AdminDashboard({
               <Calendar className="w-4 h-4" />
               Расписание
             </TabsTrigger>
-            <TabsTrigger value="statistics" className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />
-              Статистика
+            <TabsTrigger value="notifications" className="flex items-center gap-2">
+              <Bell className="w-4 h-4" />
+              Оповещения
             </TabsTrigger>
             <TabsTrigger value="specialists" className="flex items-center gap-2">
               <UserCog className="w-4 h-4" />
@@ -294,6 +300,10 @@ export function AdminDashboard({
             <TabsTrigger value="knowledgebase" className="flex items-center gap-2">
               <BookOpen className="w-4 h-4" />
               База знаний
+            </TabsTrigger>
+            <TabsTrigger value="statistics" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Статистика
             </TabsTrigger>
           </TabsList>
 
@@ -446,7 +456,7 @@ export function AdminDashboard({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm">Всего детей</CardTitle>
+                    <CardTitle className="text-sm">Всего клиентов</CardTitle>
                     <Users className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
@@ -568,7 +578,7 @@ export function AdminDashboard({
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Подробная статистика по детям</CardTitle>
+                  <CardTitle>Подробная статистика по клиентам</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Table>
@@ -692,8 +702,8 @@ export function AdminDashboard({
 
                   <div className="pt-4">
                     <div className="flex items-center gap-3 p-6 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
-                      <div className="p-3 bg-white rounded-full">
-                        <DollarSign className="h-8 w-8 text-blue-600" />
+                      <div className="p-3 bg-white rounded-full flex items-center justify-center">
+                        <span className="text-3xl text-blue-600">₽</span>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">
@@ -776,6 +786,14 @@ export function AdminDashboard({
             <SpecialistsManagement
               specialists={specialists}
               onUpdateSpecialists={onUpdateSpecialists}
+            />
+          </TabsContent>
+
+          <TabsContent value="notifications">
+            <NotificationsManagement
+              children={children}
+              schedule={schedule}
+              onUpdateChild={handleUpdateChild}
             />
           </TabsContent>
 

@@ -213,28 +213,84 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                 prepaidSubscriptionActivated: false
               };
             } else {
-              // Нет предоплаченного абонемента - показываем 0 (нужна оплата)
+              // Нет предоплаченного абонемента - полностью обнуляем карточку
               clientSessionCounters[entry.childId] = 0;
               updatedSessionsCompleted = 0;
               
               updatedEntry = {
-                paymentDueThisDay: true,
-                paymentDueType: lastEntry.paymentTypeDetailed,
-                paymentDueAmount: lastEntry.subscriptionCost || lastEntry.paymentAmount * lastEntry.totalSessions
+                paymentType: 'single',
+                paymentTypeDetailed: 'single',
+                totalSessions: 1,
+                sessionsCompleted: 0,
+                paymentDueThisDay: false, // Не показываем предупреждение об оплате
+                paymentDueType: undefined,
+                paymentDueAmount: undefined,
+                subscriptionCost: 0,
+                paymentTotalAmount: 0,
+                paymentAmount: 0,
+                prepaidSubscriptionType: undefined,
+                prepaidSubscriptionActivated: false
               };
             }
           } else {
             // Абонемент еще не завершен - продолжаем счет
             clientSessionCounters[entry.childId] = maxSessions + 1;
             updatedSessionsCompleted = maxSessions + 1;
+            
+            // Сохраняем параметры текущего абонемента
+            updatedEntry = {
+              paymentType: 'subscription',
+              paymentTypeDetailed: entry.paymentTypeDetailed,
+              totalSessions: totalSessions,
+              subscriptionCost: entry.subscriptionCost,
+              paymentAmount: entry.paymentAmount,
+              prepaidSubscriptionType: lastEntry?.prepaidSubscriptionType,
+              prepaidSubscriptionActivated: lastEntry?.prepaidSubscriptionActivated
+            };
           }
         } else {
           // Используем текущий счетчик для этого клиента
           updatedSessionsCompleted = clientSessionCounters[entry.childId];
+          
+          // Если счетчик = 0, значит абонемент завершен - полностью обнуляем карточку
+          if (clientSessionCounters[entry.childId] === 0) {
+            updatedEntry = {
+              paymentType: 'single',
+              paymentTypeDetailed: 'single',
+              totalSessions: 1,
+              sessionsCompleted: 0,
+              paymentDueThisDay: false, // Не показываем предупреждение об оплате
+              paymentDueType: undefined,
+              paymentDueAmount: undefined,
+              subscriptionCost: 0,
+              paymentTotalAmount: 0,
+              paymentAmount: 0,
+              prepaidSubscriptionType: undefined,
+              prepaidSubscriptionActivated: false
+            };
+          } else {
+            // Счетчик > 0, продолжаем использовать параметры абонемента
+            const lastEntry = clientLastEntry[entry.childId];
+            const currentTotalSessions = clientTotalSessions[entry.childId] || entry.totalSessions;
+            updatedEntry = {
+              paymentType: 'subscription',
+              paymentTypeDetailed: entry.paymentTypeDetailed,
+              totalSessions: currentTotalSessions,
+              subscriptionCost: entry.subscriptionCost,
+              paymentAmount: entry.paymentAmount,
+              prepaidSubscriptionType: lastEntry?.prepaidSubscriptionType,
+              prepaidSubscriptionActivated: lastEntry?.prepaidSubscriptionActivated
+            };
+          }
         }
         
         // Увеличиваем счетчик для следующего занятия этого клиента
-        clientSessionCounters[entry.childId]++;
+        // ТОЛЬКО если счетчик > 0 и не достиг максимума totalSessions
+        const currentTotal = updatedEntry.totalSessions || entry.totalSessions;
+        if (clientSessionCounters[entry.childId] > 0 && 
+            clientSessionCounters[entry.childId] < currentTotal) {
+          clientSessionCounters[entry.childId]++;
+        }
       }
       
       return {
@@ -250,7 +306,67 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
       };
     });
     
-    onUpdateSchedule([...schedule, ...copiedEntries]);
+    // НОВАЯ ЛОГИКА: Для каждого клиента находим момент завершения абонемента
+    // и обнуляем только записи ПОСЛЕ этого момента
+    const clientEntries: { [childId: string]: any[] } = {};
+    
+    // Группируем записи по клиентам
+    copiedEntries.forEach(entry => {
+      if (!clientEntries[entry.childId]) {
+        clientEntries[entry.childId] = [];
+      }
+      clientEntries[entry.childId].push(entry);
+    });
+    
+    // Для каждого клиента находим индекс первого завершенного занятия
+    const clientCompletionIndex: { [childId: string]: number } = {};
+    
+    Object.keys(clientEntries).forEach(childId => {
+      const entries = clientEntries[childId];
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        if (entry.paymentType === 'subscription' && 
+            entry.sessionsCompleted >= entry.totalSessions) {
+          // Нашли первое завершенное занятие - обнуляем все ПОСЛЕ него
+          clientCompletionIndex[childId] = i;
+          break;
+        }
+      }
+    });
+    
+    // Применяем обнуление только для записей после завершения абонемента
+    const finalCopiedEntries = copiedEntries.map(entry => {
+      const childId = entry.childId;
+      
+      if (childId in clientCompletionIndex) {
+        const entries = clientEntries[childId];
+        const completionIndex = clientCompletionIndex[childId];
+        const currentIndex = entries.findIndex(e => e.id === entry.id);
+        
+        // Обнуляем только если это запись ПОСЛЕ завершения абонемента
+        if (currentIndex > completionIndex) {
+          return {
+            ...entry,
+            paymentType: 'single' as const,
+            paymentTypeDetailed: 'single' as const,
+            totalSessions: 1,
+            sessionsCompleted: 0,
+            paymentDueThisDay: false,
+            paymentDueType: undefined,
+            paymentDueAmount: undefined,
+            subscriptionCost: 0,
+            paymentTotalAmount: 0,
+            paymentAmount: 0,
+            prepaidSubscriptionType: undefined,
+            prepaidSubscriptionActivated: false
+          };
+        }
+      }
+      
+      return entry;
+    });
+    
+    onUpdateSchedule([...schedule, ...finalCopiedEntries]);
     goToNextWeek();
   };
 
@@ -312,6 +428,77 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
 
   const saveEditedEntry = () => {
     if (editingEntry) {
+      // Проверяем, является ли это первым абонементом клиента
+      const isFirstSubscription = editingEntry.isPaid && 
+        editingEntry.paymentType === 'subscription' &&
+        editingEntry.paidDate;
+      
+      if (isFirstSubscription) {
+        // Проверяем историю занятий клиента - были ли у него раньше абонементы
+        const previousSubscriptions = schedule.filter(
+          e => e.childId === editingEntry.childId && 
+          e.paymentType === 'subscription' &&
+          e.id !== editingEntry.id &&
+          e.date < editingEntry.date
+        );
+        
+        // Если это действительно первый абонемент
+        if (previousSubscriptions.length === 0) {
+          const activationDate = editingEntry.paidDate;
+          
+          // Находим все будущие занятия этого клиента начиная с даты оплаты
+          const futureEntries = schedule
+            .filter(e => 
+              e.childId === editingEntry.childId && 
+              e.date >= activationDate
+            )
+            .sort((a, b) => {
+              const dateCompare = a.date.localeCompare(b.date);
+              if (dateCompare !== 0) return dateCompare;
+              return a.time.localeCompare(b.time);
+            });
+          
+          // Активируем абонемент для всех занятий начиная с даты оплаты
+          let sessionCounter = 1;
+          const totalSessions = editingEntry.totalSessions;
+          const updatedSchedule = schedule.map(entry => {
+            const futureIndex = futureEntries.findIndex(fe => fe.id === entry.id);
+            
+            if (futureIndex !== -1 && sessionCounter <= totalSessions) {
+              const isCurrentEntry = entry.id === editingEntry.id;
+              const updatedEntry = {
+                ...entry,
+                paymentType: 'subscription' as const,
+                paymentTypeDetailed: editingEntry.paymentTypeDetailed,
+                totalSessions: totalSessions,
+                sessionsCompleted: sessionCounter,
+                subscriptionCost: editingEntry.paymentTotalAmount || editingEntry.subscriptionCost,
+                paymentAmount: Math.round((editingEntry.paymentTotalAmount || editingEntry.subscriptionCost || 0) / totalSessions),
+                // Для текущей записи берем все данные из editingEntry
+                ...(isCurrentEntry ? editingEntry : {}),
+                // Но счетчик занятий всегда правильный
+                sessionsCompleted: sessionCounter
+              };
+              
+              sessionCounter++;
+              return updatedEntry;
+            }
+            
+            // Если это текущая запись, но она не попала в диапазон активации
+            if (entry.id === editingEntry.id) {
+              return { ...entry, ...editingEntry };
+            }
+            
+            return entry;
+          });
+          
+          onUpdateSchedule(updatedSchedule);
+          setEditingEntry(null);
+          return;
+        }
+      }
+      
+      // Обычное сохранение без активации абонемента
       updateEntry(editingEntry.id, editingEntry);
       setEditingEntry(null);
     }
@@ -526,6 +713,29 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                       </Select>
                     </div>
                     
+                    <div className="space-y-2">
+                      <Label>Услуга</Label>
+                      <Select
+                        value={newEntry.serviceType || ''}
+                        onValueChange={(value) => {
+                          setNewEntry({
+                            ...newEntry, 
+                            serviceType: value as 'neuro-diagnosis' | 'neuro-session' | 'psycho-diagnosis' | 'psycho-session'
+                          });
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Выберите услугу" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="neuro-diagnosis">Нейро-диагностика</SelectItem>
+                          <SelectItem value="neuro-session">Нейро-занятие</SelectItem>
+                          <SelectItem value="psycho-diagnosis">Психо-диагностика</SelectItem>
+                          <SelectItem value="psycho-session">Психо-занятие</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
                     {/* Секция информации об оплате */}
                     <div className="space-y-3 border-t pt-4">
                       <Alert className="bg-blue-50 border-blue-200">
@@ -582,7 +792,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                         <Input 
                           type="number"
                           placeholder="Введите сумму оплаты"
-                          value={newEntry.paymentTotalAmount}
+                          value={newEntry.paymentTotalAmount || 0}
                           onChange={(e) => {
                             const totalAmount = parseInt(e.target.value) || 0;
                             const sessions = newEntry.totalSessions;
@@ -605,8 +815,8 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                           disabled
                           value={
                             newEntry.paymentTypeDetailed === 'single' 
-                              ? newEntry.paymentTotalAmount 
-                              : Math.round(newEntry.paymentTotalAmount / newEntry.totalSessions) || 0
+                              ? (newEntry.paymentTotalAmount || 0)
+                              : Math.round((newEntry.paymentTotalAmount || 0) / newEntry.totalSessions) || 0
                           }
                           className="bg-gray-100 cursor-not-allowed"
                         />
@@ -683,68 +893,86 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                     </div>
                     
                     {/* Секция напоминания об оплате */}
-                    <div className="space-y-3 border-t pt-4">
-                      <Alert className="bg-orange-50 border-orange-200">
-                        <AlertDescription>
-                          🔔 Напоминание специалисту об ожидаемой оплате
-                        </AlertDescription>
-                      </Alert>
+                    {(() => {
+                      // Проверяем, есть ли у клиента действующий абонемент
+                      if (newEntry.childId) {
+                        const clientEntries = schedule.filter(e => e.childId === newEntry.childId);
+                        const hasActiveSubscription = clientEntries.some(
+                          e => e.paymentType === 'subscription' && 
+                          e.sessionsCompleted < e.totalSessions
+                        );
+                        
+                        // Если есть действующий абонемент, не показываем секцию напоминания
+                        if (hasActiveSubscription) {
+                          return null;
+                        }
+                      }
                       
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="paymentDue"
-                          checked={newEntry.paymentDueThisDay}
-                          onCheckedChange={(checked) => setNewEntry({
-                            ...newEntry, 
-                            paymentDueThisDay: checked as boolean
-                          })}
-                        />
-                        <label
-                          htmlFor="paymentDue"
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          Клиент должен внести оплату в этот день
-                        </label>
-                      </div>
-                      
-                      {newEntry.paymentDueThisDay && (
-                        <div className="space-y-3 pl-6">
-                          <div className="space-y-2">
-                            <Label>Тип ожидаемой оплаты</Label>
-                            <Select
-                              value={newEntry.paymentDueType}
-                              onValueChange={(value) => setNewEntry({
-                                ...newEntry, 
-                                paymentDueType: value as 'single' | 'subscription4' | 'subscription8' | 'subscription12'
-                              })}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="single">Разовая оплата</SelectItem>
-                                <SelectItem value="subscription4">Абонемент на 4 занятия</SelectItem>
-                                <SelectItem value="subscription8">Абонемент на 8 занятий</SelectItem>
-                                <SelectItem value="subscription12">Абонемент на 12 занятий</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                      return (
+                        <div className="space-y-3 border-t pt-4">
+                          <Alert className="bg-orange-50 border-orange-200">
+                            <AlertDescription>
+                              🔔 Напоминание специалисту об ожидаемой оплате
+                            </AlertDescription>
+                          </Alert>
                           
-                          <div className="space-y-2">
-                            <Label>Сумма к оплате</Label>
-                            <Input 
-                              type="number"
-                              placeholder="Введите ожидаемую сумму"
-                              value={newEntry.paymentDueAmount}
-                              onChange={(e) => setNewEntry({
+                          <div className="flex items-center space-x-2">
+                            <Checkbox 
+                              id="paymentDue"
+                              checked={newEntry.paymentDueThisDay}
+                              onCheckedChange={(checked) => setNewEntry({
                                 ...newEntry, 
-                                paymentDueAmount: parseInt(e.target.value) || 0
+                                paymentDueThisDay: checked as boolean
                               })}
                             />
+                            <label
+                              htmlFor="paymentDue"
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              Клиент должен внести оплату в этот день
+                            </label>
                           </div>
+                          
+                          {newEntry.paymentDueThisDay && (
+                            <div className="space-y-3 pl-6">
+                              <div className="space-y-2">
+                                <Label>Тип ожидаемой оплаты</Label>
+                                <Select
+                                  value={newEntry.paymentDueType}
+                                  onValueChange={(value) => setNewEntry({
+                                    ...newEntry, 
+                                    paymentDueType: value as 'single' | 'subscription4' | 'subscription8' | 'subscription12'
+                                  })}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="single">Разовая оплата</SelectItem>
+                                    <SelectItem value="subscription4">Абонемент на 4 занятия</SelectItem>
+                                    <SelectItem value="subscription8">Абонемент на 8 занятий</SelectItem>
+                                    <SelectItem value="subscription12">Абонемент на 12 занятий</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label>Сумма к оплате</Label>
+                                <Input 
+                                  type="number"
+                                  placeholder="Введите ожидаемую сумму"
+                                  value={newEntry.paymentDueAmount || 0}
+                                  onChange={(e) => setNewEntry({
+                                    ...newEntry, 
+                                    paymentDueAmount: parseInt(e.target.value) || 0
+                                  })}
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
+                      );
+                    })()}
                     
                     <div className="space-y-2">
                       <Label>Примечание</Label>
@@ -856,6 +1084,29 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Услуга</Label>
+                    <Select
+                      value={editingEntry.serviceType || ''}
+                      onValueChange={(value) => {
+                        setEditingEntry({
+                          ...editingEntry,
+                          serviceType: value as 'neuro-diagnosis' | 'neuro-session' | 'psycho-diagnosis' | 'psycho-session'
+                        });
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите услугу" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="neuro-diagnosis">Нейро-диагностика</SelectItem>
+                        <SelectItem value="neuro-session">Нейро-занятие</SelectItem>
+                        <SelectItem value="psycho-diagnosis">Психо-диагностика</SelectItem>
+                        <SelectItem value="psycho-session">Психо-занятие</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
                   {/* Секция информации об оплате */}
                   <div className="space-y-3 border-t pt-4">
@@ -913,7 +1164,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                       <Input 
                         type="number"
                         placeholder="Введите сумму оплаты"
-                        value={editingEntry.paymentTotalAmount || (editingEntry.paymentType === 'single' ? editingEntry.paymentAmount : editingEntry.subscriptionCost)}
+                        value={editingEntry.paymentTotalAmount || (editingEntry.paymentType === 'single' ? editingEntry.paymentAmount : editingEntry.subscriptionCost) || 0}
                         onChange={(e) => {
                           const totalAmount = parseInt(e.target.value) || 0;
                           const sessions = editingEntry.totalSessions;
@@ -1123,7 +1374,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                           <Input 
                             type="number"
                             placeholder="Введите ожидаемую сумму"
-                            value={editingEntry.paymentDueAmount}
+                            value={editingEntry.paymentDueAmount || 0}
                             onChange={(e) => setEditingEntry({
                               ...editingEntry, 
                               paymentDueAmount: parseInt(e.target.value) || 0
@@ -1322,14 +1573,30 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                                       {/* ФИО клиента */}
                                       <div className="font-semibold mb-1">{entry.childName}</div>
                                       
+                                      {/* Услуга */}
+                                      {entry.serviceType && (
+                                        <div className="text-xs text-gray-600 mb-1">
+                                          {entry.serviceType === 'neuro-diagnosis' && '🔬 Нейро-диагностика'}
+                                          {entry.serviceType === 'neuro-session' && '🧠 Нейро-занятие'}
+                                          {entry.serviceType === 'psycho-diagnosis' && '🔍 Психо-диагностика'}
+                                          {entry.serviceType === 'psycho-session' && '💭 Психо-занятие'}
+                                        </div>
+                                      )}
+                                      
                                       {/* Родители */}
                                       {child && (
                                         <div className="text-gray-600 space-y-0.5 mb-2">
                                           {child.motherName && (
-                                            <div className="text-xs">👩 {child.motherName}</div>
+                                            <div className="text-xs">
+                                              👩 {child.motherName}
+                                              {child.motherPhone && <span className="ml-2 text-gray-500">📞 {child.motherPhone}</span>}
+                                            </div>
                                           )}
                                           {child.fatherName && (
-                                            <div className="text-xs">👨 {child.fatherName}</div>
+                                            <div className="text-xs">
+                                              👨 {child.fatherName}
+                                              {child.fatherPhone && <span className="ml-2 text-gray-500">📞 {child.fatherPhone}</span>}
+                                            </div>
                                           )}
                                         </div>
                                       )}
@@ -1383,9 +1650,56 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                                             📋 {entry.sessionsCompleted}/{entry.totalSessions}
                                           </Badge>
                                         )}
-                                        <span className={`font-semibold ${entry.paymentType !== 'subscription' ? 'ml-auto' : ''}`}>
-                                          💰 {sessionCost}₽
-                                        </span>
+                                        {sessionCost > 0 ? (
+                                          <span className={`font-semibold ${entry.paymentType !== 'subscription' ? 'ml-auto' : ''}`}>
+                                            💰 {sessionCost}₽
+                                          </span>
+                                        ) : (
+                                          <span className={`text-xs text-gray-400 ${entry.paymentType !== 'subscription' ? 'ml-auto' : ''}`}>
+                                            Стоимость не указана
+                                          </span>
+                                        )}
+                                      </div>
+                                      
+                                      {/* Статус оплаты */}
+                                      <div className="mt-2 pt-2 border-t border-gray-200">
+                                        {entry.isPaid ? (
+                                          <div className="flex items-center gap-1 text-green-600">
+                                            <span className="text-xs">✅ Оплата внесена</span>
+                                            {entry.paidDate && (
+                                              <span className="text-xs text-gray-500">
+                                                ({new Date(entry.paidDate).toLocaleDateString('ru-RU')})
+                                              </span>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          // Проверяем, есть ли у клиента действующий абонемент
+                                          (() => {
+                                            const hasActiveSubscription = entry.paymentType === 'subscription' && 
+                                              entry.sessionsCompleted < entry.totalSessions;
+                                            
+                                            // Проверяем, определена ли сумма оплаты
+                                            const hasPaymentAmount = (entry.paymentAmount || 0) > 0 || 
+                                                                    (entry.subscriptionCost || 0) > 0 ||
+                                                                    (entry.paymentTotalAmount || 0) > 0;
+                                            
+                                            // Если есть действующий абонемент или сумма не определена, не показываем "Ожидается оплата"
+                                            if (hasActiveSubscription || !hasPaymentAmount) {
+                                              return null;
+                                            }
+                                            
+                                            return (
+                                              <div className="flex items-center gap-1 text-orange-600">
+                                                <span className="text-xs">⚠️ Ожидается оплата</span>
+                                              </div>
+                                            );
+                                          })()
+                                        )}
+                                        {entry.paymentDueThisDay && !entry.isPaid && (
+                                          <div className="flex items-center gap-1 text-red-600 mt-1">
+                                            <span className="text-xs font-semibold">🔔 Оплатить в этот день!</span>
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
                                   );

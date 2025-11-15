@@ -209,10 +209,11 @@ export function ChildCardView({ child, onBack, onUpdate, canEdit, statistics, is
         </div>
 
         <Tabs defaultValue="info" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="info">Основная информация</TabsTrigger>
             <TabsTrigger value="sessions">Занятия</TabsTrigger>
             <TabsTrigger value="reports">Отчеты</TabsTrigger>
+            <TabsTrigger value="notifications">История оповещений</TabsTrigger>
           </TabsList>
 
           <TabsContent value="info">
@@ -220,7 +221,7 @@ export function ChildCardView({ child, onBack, onUpdate, canEdit, statistics, is
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Карточка ребенка</CardTitle>
+                    <CardTitle>Карточка клиента</CardTitle>
                     <CardDescription>Шифр: {editedChild.code}</CardDescription>
                   </div>
                   {editedChild.archived && (
@@ -267,7 +268,7 @@ export function ChildCardView({ child, onBack, onUpdate, canEdit, statistics, is
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Возраст</Label>
                     <Input 
@@ -281,7 +282,7 @@ export function ChildCardView({ child, onBack, onUpdate, canEdit, statistics, is
                     <Label>Дата рождения</Label>
                     <Input 
                       type="date"
-                      value={editedChild.birthDate}
+                      value={editedChild.birthDate || ""}
                       onChange={(e) => setEditedChild({...editedChild, birthDate: e.target.value})}
                       disabled={!canEdit}
                     />
@@ -290,25 +291,49 @@ export function ChildCardView({ child, onBack, onUpdate, canEdit, statistics, is
                     <Label>Дата первого обращения</Label>
                     <Input 
                       type="date"
-                      value={editedChild.firstVisitDate}
+                      value={editedChild.firstVisitDate || ""}
                       onChange={(e) => setEditedChild({...editedChild, firstVisitDate: e.target.value})}
                       disabled={!canEdit}
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Имя мамы</Label>
+                    <Label>Имя матери</Label>
                     <Input 
-                      value={editedChild.motherName}
+                      value={editedChild.motherName || ""}
                       onChange={(e) => setEditedChild({...editedChild, motherName: e.target.value})}
                       disabled={!canEdit}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Имя папы</Label>
+                    <Label>Телефон матери</Label>
                     <Input 
-                      value={editedChild.fatherName}
+                      value={editedChild.motherPhone || ""}
+                      onChange={(e) => setEditedChild({...editedChild, motherPhone: e.target.value})}
+                      disabled={!canEdit}
+                      placeholder="+7 (999) 123-45-67"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Имя отца</Label>
+                    <Input 
+                      value={editedChild.fatherName || ""}
                       onChange={(e) => setEditedChild({...editedChild, fatherName: e.target.value})}
                       disabled={!canEdit}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Телефон отца</Label>
+                    <Input 
+                      value={editedChild.fatherPhone || ""}
+                      onChange={(e) => setEditedChild({...editedChild, fatherPhone: e.target.value})}
+                      disabled={!canEdit}
+                      placeholder="+7 (999) 123-45-67"
                     />
                   </div>
                 </div>
@@ -318,7 +343,7 @@ export function ChildCardView({ child, onBack, onUpdate, canEdit, statistics, is
                 <div className="space-y-2">
                   <Label>Первичные жалобы</Label>
                   <Textarea 
-                    value={editedChild.primaryComplaints}
+                    value={editedChild.primaryComplaints || ""}
                     onChange={(e) => setEditedChild({...editedChild, primaryComplaints: e.target.value})}
                     disabled={!canEdit}
                     rows={3}
@@ -368,7 +393,7 @@ export function ChildCardView({ child, onBack, onUpdate, canEdit, statistics, is
                     onChange={(e) => setEditedChild({...editedChild, otherActivities: e.target.value})}
                     disabled={!canEdit}
                     rows={3}
-                    placeholder="Другие занятия, которые посещает ребенок..."
+                    placeholder="Другие занятия, которые посещает клиент..."
                   />
                 </div>
 
@@ -379,7 +404,7 @@ export function ChildCardView({ child, onBack, onUpdate, canEdit, statistics, is
                     onChange={(e) => setEditedChild({...editedChild, interests: e.target.value})}
                     disabled={!canEdit}
                     rows={3}
-                    placeholder="Интересы и увлечения ребенка..."
+                    placeholder="Интересы и увлечения клиента..."
                   />
                 </div>
               </CardContent>
@@ -608,6 +633,57 @@ export function ChildCardView({ child, onBack, onUpdate, canEdit, statistics, is
                 ))
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="notifications">
+            <Card>
+              <CardHeader>
+                <CardTitle>История оповещений</CardTitle>
+                <CardDescription>
+                  Все отправленные уведомления родителям этого клиента
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!editedChild.notificationHistory || editedChild.notificationHistory.length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground">
+                    История оповещений пуста
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {editedChild.notificationHistory
+                      .sort((a, b) => new Date(b.date + ' ' + b.time).getTime() - new Date(a.date + ' ' + a.time).getTime())
+                      .map((notification) => (
+                        <div 
+                          key={notification.id} 
+                          className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="capitalize">
+                                {notification.messenger}
+                              </Badge>
+                              <span className="text-sm text-muted-foreground">
+                                {new Date(notification.date).toLocaleDateString('ru-RU')} в {notification.time}
+                              </span>
+                            </div>
+                            <Badge variant="secondary">{notification.sentBy}</Badge>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 text-sm">
+                              <Phone className="w-3 h-3" />
+                              <span className="font-medium">{notification.recipientName}</span>
+                              <span className="text-muted-foreground">({notification.recipientPhone})</span>
+                            </div>
+                            <div className="mt-2 p-3 bg-white rounded border border-blue-100">
+                              <p className="text-sm">{notification.message}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

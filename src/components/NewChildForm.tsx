@@ -23,7 +23,9 @@ export function NewChildForm({ onSave, onCancel, existingChildren = [] }: NewChi
     age: "",
     birthDate: "",
     motherName: "",
+    motherPhone: "",
     fatherName: "",
+    fatherPhone: "",
     firstVisitDate: new Date().toISOString().split('T')[0],
     primaryComplaints: "",
     diagnosticInfo: "",
@@ -122,7 +124,9 @@ export function NewChildForm({ onSave, onCancel, existingChildren = [] }: NewChi
       age: parseInt(formData.age),
       birthDate: formData.birthDate,
       motherName: formData.motherName,
+      motherPhone: formData.motherPhone,
       fatherName: formData.fatherName,
+      fatherPhone: formData.fatherPhone,
       firstVisitDate: formData.firstVisitDate,
       primaryComplaints: formData.primaryComplaints,
       additionalComplaints: [],
@@ -251,12 +255,32 @@ export function NewChildForm({ onSave, onCancel, existingChildren = [] }: NewChi
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="motherPhone">Телефон матери</Label>
+              <Input
+                id="motherPhone"
+                value={formData.motherPhone}
+                onChange={(e) => setFormData({ ...formData, motherPhone: e.target.value })}
+                placeholder="+7 (999) 123-45-67"
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="fatherName">ФИО отца</Label>
               <Input
                 id="fatherName"
                 value={formData.fatherName}
                 onChange={(e) => setFormData({ ...formData, fatherName: e.target.value })}
                 placeholder="Иванов Петр Сергеевич"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="fatherPhone">Телефон отца</Label>
+              <Input
+                id="fatherPhone"
+                value={formData.fatherPhone}
+                onChange={(e) => setFormData({ ...formData, fatherPhone: e.target.value })}
+                placeholder="+7 (999) 123-45-67"
               />
             </div>
 
