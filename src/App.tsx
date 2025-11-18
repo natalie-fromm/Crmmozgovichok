@@ -6,15 +6,13 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { SpecialistDashboard } from './components/SpecialistDashboard';
 import { NotificationHistoryDemo } from './components/NotificationHistoryDemo';
 import { PersonalNotificationDemo } from './components/PersonalNotificationDemo';
+import { StatisticsDemo } from './components/StatisticsDemo';
 import { useLocalStorage } from './hooks/useLocalStorage';
 
 export default function App() {
-  // Демонстрация интерфейса "История оповещений"
+  // Демонстрация вкладки "Статистика" с заполненными данными
   // Раскомментируйте строку ниже, чтобы увидеть демонстрацию
-  // return <NotificationHistoryDemo />;
-  
-  // Демонстрация интерфейса "Персональная рассылка"
-  // return <PersonalNotificationDemo />;
+  // return <StatisticsDemo />;
 
   const [currentUser, setCurrentUser] = useState<Specialist | null>(null);
   const [children, setChildren] = useLocalStorage<Child[]>('crm_children', mockChildren);

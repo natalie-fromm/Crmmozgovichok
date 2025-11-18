@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Child, Specialist, ScheduleEntry, ChildStatistics, SpecialistSalary, MonthlyExpense, ExpenseSettings } from "../types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
@@ -16,7 +16,9 @@ import { ExpenseManagement } from "./ExpenseManagement";
 import { MaterialsManagement } from "./MaterialsManagement";
 import { ScenarioManagement } from "./ScenarioManagement";
 import { NotificationsManagement } from "./NotificationsManagement";
-import { Users, Calendar, BarChart3, LogOut, Search, TrendingUp, DollarSign, Download, Plus, Archive, ArchiveRestore, UserCog, BookOpen, UserPlus, FolderOpen, FileText, Bell } from "lucide-react";
+import { CreateTestDialog } from "./CreateTestDialog";
+import { TestViewDialog } from "./TestViewDialog";
+import { Users, Calendar, BarChart3, LogOut, Search, TrendingUp, DollarSign, Download, Plus, Archive, ArchiveRestore, UserCog, BookOpen, UserPlus, FolderOpen, FileText, Bell, Award, Trash2, Eye, Pencil } from "lucide-react";
 import { exportStatisticsToPDF } from "../utils/pdfExport";
 import logo from "figma:asset/a77c055ce1f22b1a1ba46b904d066b60abd7fc2a.png";
 
@@ -62,6 +64,23 @@ export function AdminDashboard({
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [selectedIncomeYear, setSelectedIncomeYear] = useState<string>('all');
   const [selectedIncomeMonth, setSelectedIncomeMonth] = useState<string>('all');
+  const [showCreateTestDialog, setShowCreateTestDialog] = useState(false);
+  const [tests, setTests] = useState<any[]>([]);
+  const [showTestViewDialog, setShowTestViewDialog] = useState(false);
+  const [selectedTest, setSelectedTest] = useState<any>(null);
+  const [testToEdit, setTestToEdit] = useState<any>(null);
+
+  // Загрузка тестов из localStorage при монтировании
+  useEffect(() => {
+    const savedTests = localStorage.getItem('certification-tests');
+    if (savedTests) {
+      try {
+        setTests(JSON.parse(savedTests));
+      } catch (error) {
+        console.error('Ошибка загрузки тестов из localStorage:', error);
+      }
+    }
+  }, []);
 
   const calculateStatistics = (childId: string): ChildStatistics => {
     const childSchedule = schedule.filter(e => e.childId === childId);
@@ -110,8 +129,10 @@ export function AdminDashboard({
   );
 
   // Разделяем на активные и архивные
-  const activeChildren = filteredChildren.filter(child => !child.archived);
-  const archivedChildren = filteredChildren.filter(child => child.archived);
+  const activeChildren = filteredChildren.filter(child => !child.archived)
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru')); // Сортировка по фамилии
+  const archivedChildren = filteredChildren.filter(child => child.archived)
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru')); // Сортировка по фамилии
 
   // Выбираем какие дети отображать
   const displayChildren = viewArchived ? archivedChildren : activeChildren;
@@ -198,6 +219,42 @@ export function AdminDashboard({
     return incomeByCategory;
   };
 
+  // Функция для расчета дохода по типам услуг
+  const calculateIncomeByService = () => {
+    let filteredSchedule = schedule.filter(entry => entry.status === 'completed');
+    
+    if (selectedIncomeYear !== 'all') {
+      filteredSchedule = filteredSchedule.filter(entry => {
+        const entryYear = new Date(entry.date).getFullYear().toString();
+        return entryYear === selectedIncomeYear;
+      });
+      
+      if (selectedIncomeMonth !== 'all') {
+        filteredSchedule = filteredSchedule.filter(entry => {
+          const entryMonth = (new Date(entry.date).getMonth() + 1).toString().padStart(2, '0');
+          return entryMonth === selectedIncomeMonth;
+        });
+      }
+    }
+    
+    const incomeByService: Record<string, number> = {
+      'neuro-diagnosis': 0,
+      'neuro-session': 0,
+      'psycho-diagnosis': 0,
+      'psycho-session': 0,
+      'logo-diagnosis': 0,
+      'logo-session': 0,
+      'unspecified': 0
+    };
+    
+    filteredSchedule.forEach(entry => {
+      const serviceType = entry.serviceType || 'unspecified';
+      incomeByService[serviceType] = (incomeByService[serviceType] || 0) + entry.paymentAmount;
+    });
+    
+    return incomeByService;
+  };
+
   // Получаем доступные года из дат занятий
   const availableIncomeYears = Array.from(new Set(
     schedule.map(entry => new Date(entry.date).getFullYear().toString())
@@ -250,6 +307,44 @@ export function AdminDashboard({
         />
       )}
 
+      <CreateTestDialog
+        open={showCreateTestDialog}
+        onOpenChange={(open) => {
+          setShowCreateTestDialog(open);
+          if (!open) {
+            setTestToEdit(null);
+          }
+        }}
+        existingTest={testToEdit}
+        onSave={(test) => {
+          console.log('Получен тест для сохранения:', test);
+          console.log('Текущие тесты:', tests);
+          
+          let updatedTests;
+          if (testToEdit) {
+            // Режим редактирования - обновляем существующий тест
+            updatedTests = tests.map(t => t.id === test.id ? test : t);
+            console.log('Тест обновлён:', test);
+          } else {
+            // Режим создания - добавляем новый тест
+            updatedTests = [...tests, test];
+            console.log('Создан новый тест:', test);
+          }
+          
+          console.log('Обновлённые тесты:', updatedTests);
+          setTests(updatedTests);
+          localStorage.setItem('certification-tests', JSON.stringify(updatedTests));
+          console.log('Тесты сохранены в localStorage');
+          setTestToEdit(null);
+        }}
+      />
+
+      <TestViewDialog
+        open={showTestViewDialog}
+        onOpenChange={setShowTestViewDialog}
+        test={selectedTest}
+      />
+
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -300,6 +395,10 @@ export function AdminDashboard({
             <TabsTrigger value="knowledgebase" className="flex items-center gap-2">
               <BookOpen className="w-4 h-4" />
               База знаний
+            </TabsTrigger>
+            <TabsTrigger value="certification" className="flex items-center gap-2">
+              <Award className="w-4 h-4" />
+              Аттестация
             </TabsTrigger>
             <TabsTrigger value="statistics" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
@@ -517,7 +616,7 @@ export function AdminDashboard({
                         }}
                       >
                         <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Выберите год" />
+                          <SelectValue placeholder="Выбеите год" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Все года</SelectItem>
@@ -662,7 +761,7 @@ export function AdminDashboard({
                         }}
                       >
                         <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Выберите год" />
+                          <SelectValue placeholder="ыберите год" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Все года</SelectItem>
@@ -763,6 +862,55 @@ export function AdminDashboard({
                       })()}
                     </div>
                   </div>
+
+                  <div className="pt-4">
+                    <h3 className="mb-3">Доход по типам услуг</h3>
+                    <div className="space-y-3">
+                      {(() => {
+                        const incomeByService = calculateIncomeByService();
+                        const getServiceLabel = (serviceType: string) => {
+                          switch (serviceType) {
+                            case 'neuro-diagnosis': return 'Нейро-диагностика';
+                            case 'neuro-session': return 'Нейро-занятие';
+                            case 'psycho-diagnosis': return 'Психо-диагностика';
+                            case 'psycho-session': return 'Психо-занятие';
+                            case 'logo-diagnosis': return 'Лого-диагностика';
+                            case 'logo-session': return 'Лого-занятие';
+                            case 'unspecified': return 'Не указано';
+                            default: return serviceType;
+                          }
+                        };
+
+                        const getServiceColor = (serviceType: string) => {
+                          switch (serviceType) {
+                            case 'neuro-diagnosis': return 'from-blue-50 to-blue-100 border-blue-200';
+                            case 'neuro-session': return 'from-indigo-50 to-indigo-100 border-indigo-200';
+                            case 'psycho-diagnosis': return 'from-green-50 to-green-100 border-green-200';
+                            case 'psycho-session': return 'from-teal-50 to-teal-100 border-teal-200';
+                            case 'logo-diagnosis': return 'from-orange-50 to-orange-100 border-orange-200';
+                            case 'logo-session': return 'from-amber-50 to-amber-100 border-amber-200';
+                            case 'unspecified': return 'from-gray-50 to-gray-100 border-gray-200';
+                            default: return 'from-blue-50 to-blue-100 border-blue-200';
+                          }
+                        };
+
+                        return Object.entries(incomeByService)
+                          .filter(([_, amount]) => amount > 0)
+                          .map(([serviceType, amount]) => (
+                            <div 
+                              key={serviceType} 
+                              className={`flex items-center justify-between p-4 bg-gradient-to-r ${getServiceColor(serviceType)} rounded-lg border`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-current"></div>
+                                <span>{getServiceLabel(serviceType)}</span>
+                              </div>
+                              <span className="font-semibold">{amount.toLocaleString('ru-RU')} ₽</span>
+                            </div>
+                          ));
+                      })()}
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -807,6 +955,432 @@ export function AdminDashboard({
 
           <TabsContent value="knowledgebase">
             <KnowledgeBase specialists={specialists} />
+          </TabsContent>
+
+          <TabsContent value="certification">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Award className="w-5 h-5" />
+                  Аттестация
+                </CardTitle>
+                <CardDescription>
+                  Управление аттестацией специалистов и тестами
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="specialists-certification" className="space-y-4">
+                  <TabsList className="grid grid-cols-2 w-full">
+                    <TabsTrigger value="specialists-certification">Аттестация специалистов</TabsTrigger>
+                    <TabsTrigger value="tests">Тесты</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="specialists-certification">
+                    <div className="space-y-6">
+                      {/* Активные специалисты */}
+                      <div>
+                        <h3 className="mb-3">Активные специалисты</h3>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Фамилия, Имя</TableHead>
+                              <TableHead>Роль</TableHead>
+                              <TableHead>Категория</TableHead>
+                              <TableHead>Дата регистрации</TableHead>
+                              <TableHead>Дата деактивации</TableHead>
+                              <TableHead>Статус</TableHead>
+                              <TableHead>Аттестация</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {specialists
+                              .filter(s => s.active !== false)
+                              .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, 'ru'))
+                              .map((specialist) => (
+                                <TableRow key={specialist.id}>
+                                  <TableCell>{specialist.lastName} {specialist.firstName}</TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline">
+                                      {specialist.role === 'admin' ? 'Администратор' : 'Специалист'}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    {specialist.category ? (
+                                      <Badge>
+                                        {specialist.category === 'neuropsychologist' && 'Нейропсихолог'}
+                                        {specialist.category === 'psychologist' && 'Психолог'}
+                                        {specialist.category === 'speech_therapist' && 'Логопед'}
+                                        {specialist.category === 'special_educator' && 'Дефектолог'}
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-muted-foreground text-sm">Не указана</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    {specialist.createdAt 
+                                      ? new Date(specialist.createdAt).toLocaleDateString('ru-RU')
+                                      : <span className="text-muted-foreground text-sm">Не указана</span>
+                                    }
+                                  </TableCell>
+                                  <TableCell>
+                                    <span className="text-muted-foreground text-sm">—</span>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge 
+                                      style={{ backgroundColor: '#53b4e9', color: 'white', borderColor: '#53b4e9' }}
+                                    >
+                                      Активен
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      style={{ backgroundColor: '#53b4e9', color: 'white', borderColor: '#53b4e9' }}
+                                    >
+                                      Назначить
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+
+                      {/* Деактивированные специалисты */}
+                      {specialists.filter(s => s.active === false).length > 0 && (
+                        <div>
+                          <h3 className="mb-3 text-muted-foreground">Деактивированные специалисты</h3>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Фамилия, Имя</TableHead>
+                                <TableHead>Роль</TableHead>
+                                <TableHead>Категория</TableHead>
+                                <TableHead>Дата регистрации</TableHead>
+                                <TableHead>Дата деактивации</TableHead>
+                                <TableHead>Статус</TableHead>
+                                <TableHead>Аттестация</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {specialists
+                                .filter(s => s.active === false)
+                                .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, 'ru'))
+                                .map((specialist) => (
+                                  <TableRow key={specialist.id}>
+                                    <TableCell className="text-muted-foreground">
+                                      {specialist.lastName} {specialist.firstName}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="outline">
+                                        {specialist.role === 'admin' ? 'Администратор' : 'Специалист'}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      {specialist.category ? (
+                                        <Badge variant="outline">
+                                          {specialist.category === 'neuropsychologist' && 'Нейропсихолог'}
+                                          {specialist.category === 'psychologist' && 'Психолог'}
+                                          {specialist.category === 'speech_therapist' && 'Логопед'}
+                                          {specialist.category === 'special_educator' && 'Дефектолог'}
+                                        </Badge>
+                                      ) : (
+                                        <span className="text-muted-foreground text-sm">Не указана</span>
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="text-muted-foreground">
+                                      {specialist.createdAt 
+                                        ? new Date(specialist.createdAt).toLocaleDateString('ru-RU')
+                                        : <span className="text-muted-foreground text-sm">Не указана</span>
+                                      }
+                                    </TableCell>
+                                    <TableCell>
+                                      {specialist.deactivationDate 
+                                        ? new Date(specialist.deactivationDate).toLocaleDateString('ru-RU')
+                                        : <span className="text-muted-foreground text-sm">Не указана</span>
+                                      }
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="outline">
+                                        Деактивирован
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled
+                                      >
+                                        Назначить
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="tests">
+                    <Card>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle>Тесты для аттестации</CardTitle>
+                            <CardDescription>
+                              Создание и управление тестами для аттестации специалистов
+                            </CardDescription>
+                          </div>
+                          <Button
+                            size="sm"
+                            style={{ backgroundColor: '#53b4e9', color: 'white', borderColor: '#53b4e9' }}
+                            onClick={() => setShowCreateTestDialog(true)}
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Создать тест
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        {/* Вложенные вкладки для активных и архивированных тестов */}
+                        <Tabs defaultValue="active" className="w-full">
+                          <TabsList className="grid w-full grid-cols-2 mb-4">
+                            <TabsTrigger value="active">
+                              Активные тесты ({tests.filter(t => !t.archived).length})
+                            </TabsTrigger>
+                            <TabsTrigger value="archived">
+                              Архивированные ({tests.filter(t => t.archived).length})
+                            </TabsTrigger>
+                          </TabsList>
+
+                          {/* Активные тесты */}
+                          <TabsContent value="active">
+                            {tests.filter(t => !t.archived).length === 0 ? (
+                              <div className="text-center py-12 text-muted-foreground">
+                                <p>Пока нет активных тестов</p>
+                                <p className="text-sm mt-2">Создайте первый тест для аттестации специалистов</p>
+                              </div>
+                            ) : (
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Наименование теста</TableHead>
+                                    <TableHead>Срок назначения</TableHead>
+                                    <TableHead>Количество вопросов</TableHead>
+                                    <TableHead>Дата создания</TableHead>
+                                    <TableHead>Действия</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {tests.filter(t => !t.archived).map((test) => {
+                                    const getDeadlineLabel = (deadline: string) => {
+                                      switch (deadline) {
+                                        case '1-week': return '1 неделя';
+                                        case '1-month': return '1 месяц';
+                                        case '1-quarter': return '1 квартал';
+                                        case '6-months': return '1 полугодие';
+                                        case '1-year': return '1 год';
+                                        case '2-years': return '2 года';
+                                        case '3-years': return '3 года';
+                                        case '4-years': return '4 года';
+                                        case '5-years': return '5 лет';
+                                        case '6-years': return '6 лет';
+                                        case '7-years': return '7 лет';
+                                        case '8-years': return '8 лет';
+                                        case '9-years': return '9 лет';
+                                        case '10-years': return '10 лет';
+                                        default: return deadline;
+                                      }
+                                    };
+
+                                    return (
+                                      <TableRow key={test.id}>
+                                        <TableCell>{test.name}</TableCell>
+                                        <TableCell>
+                                          <Badge variant="outline">{getDeadlineLabel(test.deadline)}</Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                          <Badge>{test.questions?.length || 0}</Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                          {test.createdAt ? new Date(test.createdAt).toLocaleDateString('ru-RU') : '-'}
+                                        </TableCell>
+                                        <TableCell>
+                                          <div className="flex gap-2 flex-wrap">
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              style={{ backgroundColor: '#53b4e9', color: 'white', borderColor: '#53b4e9' }}
+                                              onClick={() => {
+                                                setSelectedTest(test);
+                                                setShowTestViewDialog(true);
+                                              }}
+                                            >
+                                              <Eye className="w-4 h-4 mr-1" />
+                                              Просмотр
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              style={{ backgroundColor: '#53b4e9', color: 'white', borderColor: '#53b4e9' }}
+                                              onClick={() => {
+                                                setTestToEdit(test);
+                                                setShowCreateTestDialog(true);
+                                              }}
+                                            >
+                                              <Pencil className="w-4 h-4 mr-1" />
+                                              Редактирование
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              style={{ backgroundColor: '#ef4444', color: 'white', borderColor: '#ef4444' }}
+                                              onClick={() => {
+                                                const updatedTests = tests.filter(t => t.id !== test.id);
+                                                setTests(updatedTests);
+                                                localStorage.setItem('certification-tests', JSON.stringify(updatedTests));
+                                              }}
+                                            >
+                                              <Trash2 className="w-4 h-4 mr-1" />
+                                              Удалить
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              style={{ backgroundColor: '#22c55e', color: 'white', borderColor: '#22c55e' }}
+                                              onClick={() => {
+                                                const updatedTests = tests.map(t => 
+                                                  t.id === test.id ? { ...t, archived: true } : t
+                                                );
+                                                setTests(updatedTests);
+                                                localStorage.setItem('certification-tests', JSON.stringify(updatedTests));
+                                              }}
+                                            >
+                                              <Archive className="w-4 h-4 mr-1" />
+                                              Архивировать
+                                            </Button>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+                                </TableBody>
+                              </Table>
+                            )}
+                          </TabsContent>
+
+                          {/* Архивированные тесты */}
+                          <TabsContent value="archived">
+                            {tests.filter(t => t.archived).length === 0 ? (
+                              <div className="text-center py-12 text-muted-foreground">
+                                <p>Нет архивированных тестов</p>
+                              </div>
+                            ) : (
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Наименование теста</TableHead>
+                                    <TableHead>Срок назначения</TableHead>
+                                    <TableHead>Количество вопросов</TableHead>
+                                    <TableHead>Дата создания</TableHead>
+                                    <TableHead>Действия</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {tests.filter(t => t.archived).map((test) => {
+                                    const getDeadlineLabel = (deadline: string) => {
+                                      switch (deadline) {
+                                        case '1-week': return '1 неделя';
+                                        case '1-month': return '1 месяц';
+                                        case '1-quarter': return '1 квартал';
+                                        case '6-months': return '1 полугодие';
+                                        case '1-year': return '1 год';
+                                        case '2-years': return '2 года';
+                                        case '3-years': return '3 года';
+                                        case '4-years': return '4 года';
+                                        case '5-years': return '5 лет';
+                                        case '6-years': return '6 лет';
+                                        case '7-years': return '7 лет';
+                                        case '8-years': return '8 лет';
+                                        case '9-years': return '9 лет';
+                                        case '10-years': return '10 лет';
+                                        default: return deadline;
+                                      }
+                                    };
+
+                                    return (
+                                      <TableRow key={test.id} className="bg-gray-50">
+                                        <TableCell className="text-muted-foreground">{test.name}</TableCell>
+                                        <TableCell>
+                                          <Badge variant="outline">{getDeadlineLabel(test.deadline)}</Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                          <Badge>{test.questions?.length || 0}</Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                          {test.createdAt ? new Date(test.createdAt).toLocaleDateString('ru-RU') : '-'}
+                                        </TableCell>
+                                        <TableCell>
+                                          <div className="flex gap-2 flex-wrap">
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              style={{ backgroundColor: '#53b4e9', color: 'white', borderColor: '#53b4e9' }}
+                                              onClick={() => {
+                                                setSelectedTest(test);
+                                                setShowTestViewDialog(true);
+                                              }}
+                                            >
+                                              <Eye className="w-4 h-4 mr-1" />
+                                              Просмотр
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              style={{ backgroundColor: '#22c55e', color: 'white', borderColor: '#22c55e' }}
+                                              onClick={() => {
+                                                const updatedTests = tests.map(t => 
+                                                  t.id === test.id ? { ...t, archived: false } : t
+                                                );
+                                                setTests(updatedTests);
+                                                localStorage.setItem('certification-tests', JSON.stringify(updatedTests));
+                                              }}
+                                            >
+                                              <ArchiveRestore className="w-4 h-4 mr-1" />
+                                              Восстановить
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              style={{ backgroundColor: '#ef4444', color: 'white', borderColor: '#ef4444' }}
+                                              onClick={() => {
+                                                const updatedTests = tests.filter(t => t.id !== test.id);
+                                                setTests(updatedTests);
+                                                localStorage.setItem('certification-tests', JSON.stringify(updatedTests));
+                                              }}
+                                            >
+                                              <Trash2 className="w-4 h-4 mr-1" />
+                                              Удалить
+                                            </Button>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+                                </TableBody>
+                              </Table>
+                            )}
+                          </TabsContent>
+                        </Tabs>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

@@ -5,7 +5,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
-import { Plus, Trash2, Edit, ImagePlus, X, ChevronUp, ChevronDown, Eye } from "lucide-react";
+import { Plus, Trash2, Edit, ImagePlus, X, ChevronUp, ChevronDown, Eye, Archive } from "lucide-react";
 import { Checkbox } from "./ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
@@ -13,7 +13,8 @@ interface ScenarioStage {
   id: string;
   name: string;
   description: string;
-  photo: string; // base64
+  photo: string; // base64 - для обратной совместимости
+  photos?: string[]; // Массив фотографий
   order: number;
 }
 
@@ -36,6 +37,7 @@ interface ScenarioMaterial {
 interface Scenario {
   id: string;
   name: string;
+  categories: string[]; // Категории сценария
   coverPhoto: string; // главное фото для карточки
   stages: ScenarioStage[]; // этапы занятия
   materials: ScenarioMaterial[]; // материалы с количеством
@@ -43,9 +45,10 @@ interface Scenario {
   instruction: string; // текст подачи задания
   createdAt: string;
   updatedAt: string;
+  archived?: boolean; // архивный статус
 }
 
-export function ScenarioManagement() {
+export function ScenarioManagement({ isSpecialist = false }: { isSpecialist?: boolean }) {
   const [scenarios, setScenarios] = useState<Scenario[]>(() => {
     const saved = localStorage.getItem('crm_scenarios');
     return saved ? JSON.parse(saved) : [];
@@ -61,9 +64,11 @@ export function ScenarioManagement() {
   const [showMaterialDialog, setShowMaterialDialog] = useState(false);
   const [viewingScenario, setViewingScenario] = useState<Scenario | null>(null);
   const [showViewDialog, setShowViewDialog] = useState(false);
+  const [viewMode, setViewMode] = useState<'active' | 'archive'>('active');
 
   // Форма
   const [name, setName] = useState('');
+  const [categories, setCategories] = useState<string[]>([]);
   const [coverPhoto, setCoverPhoto] = useState('');
   const [stages, setStages] = useState<ScenarioStage[]>([]);
   const [selectedMaterials, setSelectedMaterials] = useState<ScenarioMaterial[]>([]);
@@ -74,10 +79,15 @@ export function ScenarioManagement() {
   const [newStageName, setNewStageName] = useState('');
   const [newStageDescription, setNewStageDescription] = useState('');
   const [newStagePhoto, setNewStagePhoto] = useState('');
+  const [newStagePhotos, setNewStagePhotos] = useState<string[]>([]);
   
   // Для добавления материала
   const [selectedMaterialId, setSelectedMaterialId] = useState('');
   const [materialQuantity, setMaterialQuantity] = useState('1');
+
+  // Для поиска и фильтрации
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterCategories, setFilterCategories] = useState<string[]>([]);
 
   const saveScenarios = (updatedScenarios: Scenario[]) => {
     setScenarios(updatedScenarios);
@@ -108,6 +118,34 @@ export function ScenarioManagement() {
     reader.readAsDataURL(file);
   };
 
+  const handleStagePhotosUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const promises: Promise<string>[] = [];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const promise = new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const result = event.target?.result as string;
+          resolve(result);
+        };
+        reader.readAsDataURL(file);
+      });
+      promises.push(promise);
+    }
+
+    Promise.all(promises).then((results) => {
+      setNewStagePhotos([...newStagePhotos, ...results]);
+    });
+  };
+
+  const removeNewStagePhoto = (index: number) => {
+    setNewStagePhotos(newStagePhotos.filter((_, i) => i !== index));
+  };
+
   const handleAddStage = () => {
     if (!newStageName.trim()) return;
 
@@ -116,6 +154,7 @@ export function ScenarioManagement() {
       name: newStageName.trim(),
       description: newStageDescription.trim(),
       photo: newStagePhoto,
+      photos: newStagePhotos,
       order: stages.length
     };
 
@@ -123,6 +162,7 @@ export function ScenarioManagement() {
     setNewStageName('');
     setNewStageDescription('');
     setNewStagePhoto('');
+    setNewStagePhotos([]);
   };
 
   const handleRemoveStage = (stageId: string) => {
@@ -166,8 +206,47 @@ export function ScenarioManagement() {
     reader.readAsDataURL(file);
   };
 
+  const handleStagePhotosUploadForExisting = (stageId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const promises: Promise<string>[] = [];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const promise = new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const result = event.target?.result as string;
+          resolve(result);
+        };
+        reader.readAsDataURL(file);
+      });
+      promises.push(promise);
+    }
+
+    Promise.all(promises).then((results) => {
+      setStages(stages.map(s => {
+        if (s.id === stageId) {
+          return { ...s, photos: [...(s.photos || []), ...results] };
+        }
+        return s;
+      }));
+    });
+  };
+
+  const removeStagePhoto = (stageId: string, photoIndex: number) => {
+    setStages(stages.map(s => {
+      if (s.id === stageId && s.photos) {
+        return { ...s, photos: s.photos.filter((_, i) => i !== photoIndex) };
+      }
+      return s;
+    }));
+  };
+
   const resetForm = () => {
     setName('');
+    setCategories([]);
     setCoverPhoto('');
     setStages([]);
     setSelectedMaterials([]);
@@ -176,6 +255,7 @@ export function ScenarioManagement() {
     setNewStageName('');
     setNewStageDescription('');
     setNewStagePhoto('');
+    setNewStagePhotos([]);
     setEditingScenario(null);
   };
 
@@ -185,6 +265,7 @@ export function ScenarioManagement() {
     const newScenario: Scenario = {
       id: Date.now().toString(),
       name: name.trim(),
+      categories,
       coverPhoto,
       stages: stages.sort((a, b) => a.order - b.order),
       materials: selectedMaterials,
@@ -205,6 +286,7 @@ export function ScenarioManagement() {
     const updatedScenario: Scenario = {
       ...editingScenario,
       name: name.trim(),
+      categories,
       coverPhoto,
       stages: stages.sort((a, b) => a.order - b.order),
       materials: selectedMaterials,
@@ -227,6 +309,7 @@ export function ScenarioManagement() {
   const handleEditClick = (scenario: Scenario) => {
     setEditingScenario(scenario);
     setName(scenario.name);
+    setCategories(scenario.categories);
     setCoverPhoto(scenario.coverPhoto);
     setStages(scenario.stages || []);
     setSelectedMaterials(scenario.materials);
@@ -289,33 +372,180 @@ export function ScenarioManagement() {
     setShowViewDialog(true);
   };
 
+  const handleArchiveScenario = (id: string) => {
+    const scenario = scenarios.find(s => s.id === id);
+    if (!scenario) return;
+    
+    const updatedScenarios = scenarios.map(s => 
+      s.id === id ? { ...s, archived: !s.archived } : s
+    );
+    saveScenarios(updatedScenarios);
+  };
+
+  // Список доступных категорий
+  const availableCategories = [
+    'Полевое',
+    'СДВГ',
+    'Аутизм',
+    'РАС',
+    'ЗПР',
+    'ЗРР',
+    'ДЦП',
+    'Диспраксия',
+    'Дислексия',
+    'Дисграфия',
+    'Агнозия зрительная',
+    'Агнозия слуховая',
+    'Агнозия тактильная',
+    'Общее развитие',
+    'Младенцы'
+  ];
+
+  const toggleCategory = (category: string) => {
+    if (categories.includes(category)) {
+      setCategories(categories.filter(c => c !== category));
+    } else {
+      setCategories([...categories, category]);
+    }
+  };
+
+  const toggleFilterCategory = (category: string) => {
+    if (filterCategories.includes(category)) {
+      setFilterCategories(filterCategories.filter(c => c !== category));
+    } else {
+      setFilterCategories([...filterCategories, category]);
+    }
+  };
+
+  // Фильтрация сценариев
+  const filteredScenarios = scenarios.filter(scenario => {
+    // Фильтр по режиму просмотра (активные или архивные)
+    const matchesViewMode = viewMode === 'active' ? !scenario.archived : scenario.archived;
+
+    // Фильтр по поиску (название)
+    const matchesSearch = searchQuery.trim() === '' || 
+      scenario.name.toLowerCase().includes(searchQuery.toLowerCase());
+
+    // Фильтр по категориям
+    const matchesCategories = filterCategories.length === 0 ||
+      filterCategories.some(filterCat => scenario.categories?.includes(filterCat));
+
+    return matchesViewMode && matchesSearch && matchesCategories;
+  });
+
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Сценарии занятий</CardTitle>
+              <CardTitle>{viewMode === 'active' ? 'Сценарии занятий' : 'Архив сценариев'}</CardTitle>
               <CardDescription>
-                Готовые сценарии занятий с описанием целей, материалов и инструкций
+                {viewMode === 'active' 
+                  ? 'Готовые сценарии занятий с описанием целей, материалов и инструкций'
+                  : 'Архивные сценарии занятий'
+                }
               </CardDescription>
             </div>
-            <Button onClick={handleAddClick}>
-              <Plus className="w-4 h-4 mr-2" />
-              Добавить сценарий
-            </Button>
+            <div className="flex gap-2">
+              {!isSpecialist && (
+                viewMode === 'active' ? (
+                  <>
+                    <Button variant="outline" onClick={() => setViewMode('archive')}>
+                      <Archive className="w-4 h-4 mr-2" />
+                      Архив ({scenarios.filter(s => s.archived).length})
+                    </Button>
+                    <Button onClick={handleAddClick}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Добавить сценарий
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="outline" onClick={() => setViewMode('active')}>
+                    Вернуться к сценариям
+                  </Button>
+                )
+              )}
+            </div>
           </div>
         </CardHeader>
 
         <CardContent>
+          {/* Поиск и фильтрация */}
+          <div className="space-y-4 mb-6">
+            {/* Поиск по названию */}
+            <div className="space-y-2">
+              <Label>Поиск по названию</Label>
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Введите название сценария..."
+                className="w-full"
+              />
+            </div>
+
+            {/* Фильтр по категориям */}
+            <div className="space-y-2">
+              <Label>Фильтр по категориям</Label>
+              <div className="border rounded-lg p-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {availableCategories.map(category => (
+                    <div key={category} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`filter-${category}`}
+                        checked={filterCategories.includes(category)}
+                        onCheckedChange={() => toggleFilterCategory(category)}
+                      />
+                      <label
+                        htmlFor={`filter-${category}`}
+                        className="text-sm cursor-pointer"
+                      >
+                        {category}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                {filterCategories.length > 0 && (
+                  <div className="mt-3 pt-3 border-t flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      Выбрано категорий: {filterCategories.length}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setFilterCategories([])}
+                    >
+                      Сбросить фильтр
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Результаты поиска */}
+            {(searchQuery.trim() !== '' || filterCategories.length > 0) && (
+              <div className="text-sm text-muted-foreground">
+                Найдено сценариев: {filteredScenarios.length} из {viewMode === 'active' ? scenarios.filter(s => !s.archived).length : scenarios.filter(s => s.archived).length}
+              </div>
+            )}
+          </div>
+
+          {/* Список сценариев */}
           {scenarios.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <p>Нет добавленных сценариев</p>
               <p className="text-sm mt-2">Нажмите "Добавить сценарий" чтобы создать первый сценарий занятия</p>
             </div>
+          ) : filteredScenarios.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>Не найдено сценариев по заданным критериям</p>
+              <p className="text-sm mt-2">Попробуйте изменить параметры поиска или фильтра</p>
+            </div>
           ) : (
             <div className="space-y-3">
-              {scenarios.map((scenario) => (
+              {filteredScenarios
+                .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+                .map((scenario) => (
                 <div
                   key={scenario.id}
                   className="flex items-center gap-4 p-4 border rounded-lg hover:shadow-md transition-shadow bg-white"
@@ -338,6 +568,18 @@ export function ScenarioManagement() {
                   {/* Информация */}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-lg mb-1">{scenario.name}</h3>
+                    {scenario.categories && scenario.categories.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {scenario.categories.map(category => (
+                          <span
+                            key={category}
+                            className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full"
+                          >
+                            {category}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex gap-4 text-sm text-muted-foreground">
                       {scenario.stages && scenario.stages.length > 0 && (
                         <span>Этапов: {scenario.stages.length}</span>
@@ -353,25 +595,55 @@ export function ScenarioManagement() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleEditClick(scenario)}
-                    >
-                      <Edit className="w-4 h-4 mr-1" />
-                      Открыть
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteScenario(scenario.id)}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
                       onClick={() => handleViewClick(scenario)}
+                      style={{ backgroundColor: '#53b4e9', color: 'white', borderColor: '#53b4e9' }}
                     >
-                      <Eye className="w-4 h-4 text-blue-600" />
+                      <Eye className="w-4 h-4 mr-1" />
+                      Просмотр
                     </Button>
+                    {!isSpecialist && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditClick(scenario)}
+                          style={{ backgroundColor: '#4caf50', color: 'white', borderColor: '#4caf50' }}
+                        >
+                          <Edit className="w-4 h-4 mr-1" />
+                          Редактировать
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteScenario(scenario.id)}
+                          style={{ backgroundColor: '#f44336', color: 'white', borderColor: '#f44336' }}
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Удалить
+                        </Button>
+                        {viewMode === 'active' ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleArchiveScenario(scenario.id)}
+                            style={{ backgroundColor: '#9e9e9e', color: 'white', borderColor: '#9e9e9e' }}
+                          >
+                            <Archive className="w-4 h-4 mr-1" />
+                            Архивировать
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleArchiveScenario(scenario.id)}
+                            style={{ backgroundColor: '#ff9800', color: 'white', borderColor: '#ff9800' }}
+                          >
+                            <Archive className="w-4 h-4 mr-1" />
+                            Разархивировать
+                          </Button>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -387,7 +659,7 @@ export function ScenarioManagement() {
         }
         setShowDialog(open);
       }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingScenario ? 'Редактировать сценарий' : 'Добавить сценарий'}
@@ -406,6 +678,35 @@ export function ScenarioManagement() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Например: Развитие мелкой моторики с пирамидкой"
               />
+            </div>
+
+            {/* Категории */}
+            <div className="space-y-2">
+              <Label>Категории сценария</Label>
+              <div className="border rounded-lg p-4 space-y-2 max-h-60 overflow-y-auto">
+                <div className="grid grid-cols-2 gap-3">
+                  {availableCategories.map(category => (
+                    <div key={category} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`category-${category}`}
+                        checked={categories.includes(category)}
+                        onCheckedChange={() => toggleCategory(category)}
+                      />
+                      <label
+                        htmlFor={`category-${category}`}
+                        className="text-sm cursor-pointer"
+                      >
+                        {category}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {categories.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Выбрано: {categories.join(', ')}
+                </p>
+              )}
             </div>
 
             {/* Обложка */}
@@ -438,6 +739,28 @@ export function ScenarioManagement() {
               </div>
             </div>
 
+            {/* Цель */}
+            <div className="space-y-2">
+              <Label>Цель занятия</Label>
+              <Textarea
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
+                placeholder="Опишите цель этого занятия: какие навыки развиваются, что должен освоить ребенок..."
+                rows={3}
+              />
+            </div>
+
+            {/* Инструкция */}
+            <div className="space-y-2">
+              <Label>Текст подачи задания ребенку</Label>
+              <Textarea
+                value={instruction}
+                onChange={(e) => setInstruction(e.target.value)}
+                placeholder="Как объяснить ребенку задание: что нужно делать, как выполнять упражнение..."
+                rows={4}
+              />
+            </div>
+
             {/* Этапы занятия */}
             <div className="space-y-3">
               <Label>Этапы занятия</Label>
@@ -449,13 +772,16 @@ export function ScenarioManagement() {
                     .sort((a, b) => a.order - b.order)
                     .map((stage, index) => (
                       <div key={stage.id} className="border rounded-lg p-4 bg-gray-50">
-                        <div className="flex items-start gap-3">
-                          {/* Порядковый номер и кнопки перемещения */}
-                          <div className="flex flex-col items-center gap-1 pt-1">
+                        {/* Верхняя строка: номер, кнопки управления и кнопка удаления */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            {/* Порядковый номер */}
                             <span className="text-sm font-semibold text-gray-500">
                               {index + 1}
                             </span>
-                            <div className="flex flex-col gap-1">
+                            
+                            {/* Кнопки перемещения */}
+                            <div className="flex gap-1">
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -477,42 +803,6 @@ export function ScenarioManagement() {
                             </div>
                           </div>
 
-                          {/* Фото этапа */}
-                          <div className="w-32 h-32 flex-shrink-0">
-                            {stage.photo ? (
-                              <img
-                                src={stage.photo}
-                                alt={`Этап ${index + 1}`}
-                                className="w-full h-full object-cover rounded-md border"
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-gray-100 rounded-md border flex items-center justify-center">
-                                <ImagePlus className="w-8 h-8 text-gray-400" />
-                              </div>
-                            )}
-                            <Input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleStagePhotoUploadForExisting(stage.id, e)}
-                              className="mt-2 text-xs"
-                            />
-                          </div>
-
-                          {/* Поля этапа */}
-                          <div className="flex-1 space-y-2">
-                            <Input
-                              value={stage.name}
-                              onChange={(e) => handleUpdateStage(stage.id, 'name', e.target.value)}
-                              placeholder="Название этапа"
-                            />
-                            <Textarea
-                              value={stage.description}
-                              onChange={(e) => handleUpdateStage(stage.id, 'description', e.target.value)}
-                              placeholder="Описание этапа..."
-                              rows={3}
-                            />
-                          </div>
-
                           {/* Кнопка удаления */}
                           <Button
                             variant="ghost"
@@ -522,6 +812,86 @@ export function ScenarioManagement() {
                             <X className="w-4 h-4 text-red-600" />
                           </Button>
                         </div>
+
+                        {/* Фото и название в одной строке */}
+                        <div className="flex items-start gap-4 mb-3">
+                          <div className="w-32 flex-shrink-0 space-y-2">
+                            {/* Превью фото */}
+                            <div className="w-32 h-32">
+                              {stage.photo ? (
+                                <img
+                                  src={stage.photo}
+                                  alt={`Этап ${index + 1}`}
+                                  className="w-full h-full object-cover rounded-md border"
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-gray-100 rounded-md border flex items-center justify-center">
+                                  <ImagePlus className="w-8 h-8 text-gray-400" />
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Загрузка файлов */}
+                            <div className="space-y-1">
+                              <Input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => handleStagePhotoUploadForExisting(stage.id, e)}
+                                className="text-xs w-full"
+                              />
+                              <Input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={(e) => handleStagePhotosUploadForExisting(stage.id, e)}
+                                className="text-xs w-full"
+                              />
+                            </div>
+                            
+                            {/* Галерея дополнительных фото */}
+                            {stage.photos && stage.photos.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {stage.photos.map((photo, photoIndex) => (
+                                  <div key={photoIndex} className="relative">
+                                    <img
+                                      src={photo}
+                                      alt={`Photo ${photoIndex + 1}`}
+                                      className="w-16 h-16 object-cover rounded-md border"
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="absolute -top-2 -right-2 h-5 w-5 p-0 bg-white rounded-full"
+                                      onClick={() => removeStagePhoto(stage.id, photoIndex)}
+                                    >
+                                      <X className="w-3 h-3 text-red-600" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Название этапа */}
+                          <div className="flex-1">
+                            <Input
+                              value={stage.name}
+                              onChange={(e) => handleUpdateStage(stage.id, 'name', e.target.value)}
+                              placeholder="Название этапа"
+                            />
+                          </div>
+                        </div>
+                        
+                        {/* Описание этапа на всю ширину */}
+                        <div className="w-full">
+                          <Textarea
+                            value={stage.description}
+                            onChange={(e) => handleUpdateStage(stage.id, 'description', e.target.value)}
+                            placeholder="Описание этапа..."
+                            rows={6}
+                            className="min-h-[120px] w-full"
+                          />
+                        </div>
                       </div>
                     ))}
                 </div>
@@ -530,48 +900,98 @@ export function ScenarioManagement() {
               {/* Добавление нового этапа */}
               <div className="border-2 border-dashed rounded-lg p-4 space-y-3">
                 <h4 className="text-sm font-medium">Добавить новый этап</h4>
+                
+                {/* Фото и название в одной строке */}
                 <div className="flex items-start gap-4">
-                  <div className="w-32 h-32 flex-shrink-0">
-                    {newStagePhoto ? (
-                      <img
-                        src={newStagePhoto}
-                        alt="Preview"
-                        className="w-full h-full object-cover rounded-md border"
+                  <div className="w-32 flex-shrink-0 space-y-2">
+                    {/* Превью фото */}
+                    <div className="w-32 h-32">
+                      {newStagePhoto ? (
+                        <img
+                          src={newStagePhoto}
+                          alt="Preview"
+                          className="w-full h-full object-cover rounded-md border"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-100 rounded-md border flex items-center justify-center">
+                          <ImagePlus className="w-8 h-8 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Загрузка файлов */}
+                    <div className="space-y-1">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleStagePhotoUpload}
+                        className="text-xs w-full"
                       />
-                    ) : (
-                      <div className="w-full h-full bg-gray-100 rounded-md border flex items-center justify-center">
-                        <ImagePlus className="w-8 h-8 text-gray-400" />
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleStagePhotosUpload}
+                        className="text-xs w-full"
+                      />
+                    </div>
+                    
+                    {/* Галерея дополнительных фото */}
+                    {newStagePhotos.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {newStagePhotos.map((photo, index) => (
+                          <div key={index} className="relative">
+                            <img
+                              src={photo}
+                              alt={`Photo ${index + 1}`}
+                              className="w-16 h-16 object-cover rounded-md border"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="absolute top-0 right-0 h-5 w-5 p-0 bg-white rounded-full"
+                              onClick={() => removeNewStagePhoto(index)}
+                            >
+                              <X className="w-3 h-3 text-red-600" />
+                            </Button>
+                          </div>
+                        ))}
                       </div>
                     )}
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleStagePhotoUpload}
-                      className="mt-2 text-xs"
-                    />
                   </div>
-                  <div className="flex-1 space-y-2">
+                  
+                  {/* Название этапа */}
+                  <div className="flex-1">
                     <Input
                       value={newStageName}
                       onChange={(e) => setNewStageName(e.target.value)}
                       placeholder="Название этапа *"
                     />
-                    <Textarea
-                      value={newStageDescription}
-                      onChange={(e) => setNewStageDescription(e.target.value)}
-                      placeholder="Описание этапа: что делать, как выполнять..."
-                      rows={2}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleAddStage}
-                      disabled={!newStageName.trim()}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Добавить этап
-                    </Button>
                   </div>
+                </div>
+                
+                {/* Описание этапа на всю ширину */}
+                <div className="w-full">
+                  <Textarea
+                    value={newStageDescription}
+                    onChange={(e) => setNewStageDescription(e.target.value)}
+                    placeholder="Описание этапа: что делать, как выполнять..."
+                    rows={6}
+                    className="min-h-[120px] w-full"
+                  />
+                </div>
+                
+                {/* Кнопка добавления */}
+                <div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddStage}
+                    disabled={!newStageName.trim()}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Добавить этап
+                  </Button>
                 </div>
               </div>
             </div>
@@ -653,28 +1073,6 @@ export function ScenarioManagement() {
                 <Plus className="w-4 h-4 mr-2" />
                 Добавить материал
               </Button>
-            </div>
-
-            {/* Цель */}
-            <div className="space-y-2">
-              <Label>Цель занятия</Label>
-              <Textarea
-                value={goal}
-                onChange={(e) => setGoal(e.target.value)}
-                placeholder="Опишите цель этого занятия: какие навыки развиваются, что должен освоить ребенок..."
-                rows={3}
-              />
-            </div>
-
-            {/* Инструкция */}
-            <div className="space-y-2">
-              <Label>Текст подачи задания ребенку</Label>
-              <Textarea
-                value={instruction}
-                onChange={(e) => setInstruction(e.target.value)}
-                placeholder="Как объяснить ребенку задание: что нужно делать, как выполнять упражнение..."
-                rows={4}
-              />
             </div>
 
             {/* Кнопки */}
@@ -895,16 +1293,6 @@ export function ScenarioManagement() {
               {/* Кнопки */}
               <div className="flex gap-2 pt-4 border-t">
                 <Button
-                  onClick={() => {
-                    setShowViewDialog(false);
-                    handleEditClick(viewingScenario);
-                  }}
-                >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Редактировать
-                </Button>
-                <Button
-                  variant="outline"
                   onClick={() => setShowViewDialog(false)}
                 >
                   Закрыть

@@ -5,14 +5,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Badge } from "./ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 import { ChildCardView } from "./ChildCardView";
 import { ScenarioManagement } from "./ScenarioManagement";
 import { MaterialsManagement } from "./MaterialsManagement";
 import { KnowledgeBase } from "./KnowledgeBase";
 import { NotificationCenter } from "./NotificationCenter";
-import { LogOut, Calendar, User, BookOpen, Package, Lightbulb, Bell } from "lucide-react";
+import { LogOut, Calendar, User, BookOpen, Package, Lightbulb, Bell, GraduationCap, Award, Book, Send, Plus, X, Edit, Eye } from "lucide-react";
 import logo from "figma:asset/a77c055ce1f22b1a1ba46b904d066b60abd7fc2a.png";
 import scheduleIcon from "figma:asset/7843564f189c0f5a6df2526b328bb66aee93a993.png";
+
+interface SelfEducationItem {
+  id: string;
+  specialistId: string;
+  type: string;
+  customType?: string;
+  name: string;
+  date: string;
+  documentPhoto?: string;
+  createdAt: string;
+}
 
 interface SpecialistDashboardProps {
   specialist: Specialist;
@@ -36,6 +51,83 @@ export function SpecialistDashboard({
   onMarkAllAsRead 
 }: SpecialistDashboardProps) {
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
+  
+  // State для самообразования
+  const [selfEducationItems, setSelfEducationItems] = useState<SelfEducationItem[]>(() => {
+    const saved = localStorage.getItem('selfEducationItems');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<SelfEducationItem | null>(null);
+  const [newItemType, setNewItemType] = useState<string>('');
+  const [customType, setCustomType] = useState<string>('');
+  const [newItemName, setNewItemName] = useState<string>('');
+  const [newItemDate, setNewItemDate] = useState<string>('');
+  const [documentPhoto, setDocumentPhoto] = useState<string>('');
+  const [editItemType, setEditItemType] = useState<string>('');
+  const [editCustomType, setEditCustomType] = useState<string>('');
+  const [editItemName, setEditItemName] = useState<string>('');
+  const [editItemDate, setEditItemDate] = useState<string>('');
+  const [editDocumentPhoto, setEditDocumentPhoto] = useState<string>('');
+
+  // Функция для добавления записи самообразования
+  const handleAddSelfEducation = () => {
+    if (!newItemType || !newItemName.trim() || !newItemDate) {
+      return;
+    }
+
+    const newItem: SelfEducationItem = {
+      id: Date.now().toString(),
+      specialistId: specialist.id,
+      type: newItemType === 'Иное' ? customType : newItemType,
+      customType: newItemType === 'Иное' ? customType : undefined,
+      name: newItemName.trim(),
+      date: newItemDate,
+      documentPhoto: documentPhoto || undefined,
+      createdAt: new Date().toISOString()
+    };
+
+    const updatedItems = [...selfEducationItems, newItem];
+    setSelfEducationItems(updatedItems);
+    localStorage.setItem('selfEducationItems', JSON.stringify(updatedItems));
+
+    // Сбросить форму
+    setIsAddDialogOpen(false);
+    setNewItemType('');
+    setCustomType('');
+    setNewItemName('');
+    setNewItemDate('');
+    setDocumentPhoto('');
+  };
+
+  // Функция для загрузки фото документа
+  const handleDocumentPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setDocumentPhoto(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Функция для загрузки фото документа при редактировании
+  const handleEditDocumentPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditDocumentPhoto(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Получить записи самообразования для текущего специалиста
+  const myEducationItems = selfEducationItems.filter(item => item.specialistId === specialist.id);
 
   // Вспомогательная функция для форматирования даты в YYYY-MM-DD
   const formatDateToYYYYMMDD = (date: Date): string => {
@@ -57,10 +149,12 @@ export function SpecialistDashboard({
   };
 
   // Получаем детей, с которыми работает этот специалист
-  const myChildren = children.filter(child =>
-    child.sessions.some(session => session.specialistId === specialist.id) ||
-    schedule.some(entry => entry.specialistId === specialist.id && entry.childId === child.id)
-  );
+  const myChildren = children
+    .filter(child =>
+      child.sessions.some(session => session.specialistId === specialist.id) ||
+      schedule.some(entry => entry.specialistId === specialist.id && entry.childId === child.id)
+    )
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru')); // Сортировка по фамилии
 
   // Получаем расписание специалиста
   const today = new Date();
@@ -171,7 +265,7 @@ export function SpecialistDashboard({
 
       <div className="p-6">
         <Tabs defaultValue="schedule" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
+          <TabsList className="grid w-full grid-cols-7 mb-6">
             <TabsTrigger value="schedule" className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
               Расписание
@@ -191,6 +285,14 @@ export function SpecialistDashboard({
             <TabsTrigger value="knowledge" className="flex items-center gap-2">
               <Lightbulb className="w-4 h-4" />
               База знаний
+            </TabsTrigger>
+            <TabsTrigger value="training" className="flex items-center gap-2">
+              <GraduationCap className="w-4 h-4" />
+              Обучение
+            </TabsTrigger>
+            <TabsTrigger value="certification" className="flex items-center gap-2">
+              <Award className="w-4 h-4" />
+              Аттестация
             </TabsTrigger>
           </TabsList>
 
@@ -291,7 +393,7 @@ export function SpecialistDashboard({
               <CardHeader>
                 <CardTitle>Моё расписание</CardTitle>
                 <CardDescription>
-                  Предыдущий рабочий день, сегодня и три следующих рабочих дня
+                  Предыдущий рабий день, сегодня и три следующих рабочих дня
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -400,17 +502,436 @@ export function SpecialistDashboard({
 
           {/* Вкладка Сценарии */}
           <TabsContent value="scenarios">
-            <ScenarioManagement />
+            <ScenarioManagement isSpecialist={true} />
           </TabsContent>
 
           {/* Вкладка Материалы */}
           <TabsContent value="materials">
-            <MaterialsManagement />
+            <MaterialsManagement isSpecialist={true} />
           </TabsContent>
 
           {/* Вкладка База знаний */}
           <TabsContent value="knowledge">
             <KnowledgeBase specialists={[]} />
+          </TabsContent>
+
+          {/* Вкладка Обучение */}
+          <TabsContent value="training">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5" />
+                  Обучение
+                </CardTitle>
+                <CardDescription>
+                  Образовательные материалы и курсы для специалистов
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="self-education" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 mb-4">
+                    <TabsTrigger value="self-education" className="flex items-center gap-2">
+                      <Book className="w-4 h-4" />
+                      Самообразование
+                    </TabsTrigger>
+                    <TabsTrigger value="training-assignment" className="flex items-center gap-2">
+                      <Send className="w-4 h-4" />
+                      Направление на обучение
+                    </TabsTrigger>
+                  </TabsList>
+
+                  {/* Подраздел Самообразование */}
+                  <TabsContent value="self-education">
+                    <div className="space-y-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsAddDialogOpen(true)}
+                        style={{ backgroundColor: '#53b4e9', color: 'white', borderColor: '#53b4e9' }}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Добавить запись
+                      </Button>
+                      <div className="space-y-2">
+                        {myEducationItems.map(item => (
+                          <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <Badge>{item.type}</Badge>
+                                <span>{item.name}</span>
+                                <span className="text-sm text-muted-foreground ml-2">
+                                  {new Date(item.date).toLocaleDateString('ru-RU')}
+                                </span>
+                              </div>
+                              {item.documentPhoto && (
+                                <div className="mt-1">
+                                  <img src={item.documentPhoto} alt="Документ" className="w-20 h-20 object-cover rounded" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedItem(item);
+                                  setIsViewDialogOpen(true);
+                                }}
+                                style={{ backgroundColor: '#53b4e9', color: 'white', borderColor: '#53b4e9' }}
+                                className="mr-2"
+                              >
+                                <Eye className="w-4 h-4 mr-2" />
+                                Просмотр
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedItem(item);
+                                  setEditItemType(item.type);
+                                  setEditCustomType(item.customType || '');
+                                  setEditItemName(item.name);
+                                  setEditItemDate(item.date);
+                                  setEditDocumentPhoto(item.documentPhoto || '');
+                                  setIsEditDialogOpen(true);
+                                }}
+                                style={{ backgroundColor: '#4caf50', color: 'white', borderColor: '#4caf50' }}
+                              >
+                                <Edit className="w-4 h-4 mr-2" />
+                                Редактировать
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Диалог добавления записи самообразования */}
+                    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                      <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>Добавить запись самообразования</DialogTitle>
+                          <DialogDescription>
+                            Введите информацию о новой записи самообразования
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="item-type">Объект изучения</Label>
+                            <Select
+                              value={newItemType}
+                              onValueChange={setNewItemType}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Выберите объект изучения" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Книга">Книга</SelectItem>
+                                <SelectItem value="Подкаст">Подкаст</SelectItem>
+                                <SelectItem value="Видео">Видео</SelectItem>
+                                <SelectItem value="Семинар">Семинар</SelectItem>
+                                <SelectItem value="Мастер-класс">Мастер-класс</SelectItem>
+                                <SelectItem value="Курс">Курс</SelectItem>
+                                <SelectItem value="Переподготовка">Переподготовка</SelectItem>
+                                <SelectItem value="Иное">Иное</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {newItemType === 'Иное' && (
+                            <div className="space-y-2">
+                              <Label htmlFor="custom-type">Укажите тип</Label>
+                              <Input
+                                id="custom-type"
+                                value={customType}
+                                onChange={(e) => setCustomType(e.target.value)}
+                                placeholder="Введите тип объекта изучения"
+                              />
+                            </div>
+                          )}
+                          <div className="space-y-2">
+                            <Label htmlFor="item-name">Наименование</Label>
+                            <Input
+                              id="item-name"
+                              value={newItemName}
+                              onChange={(e) => setNewItemName(e.target.value)}
+                              placeholder="Введите наименование"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="item-date">Дата прохождения обучения</Label>
+                            <Input
+                              id="item-date"
+                              type="date"
+                              value={newItemDate}
+                              onChange={(e) => setNewItemDate(e.target.value)}
+                              placeholder="Введите дату"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="document-photo">Фото документа о прохождении обучения</Label>
+                            <Input
+                              id="document-photo"
+                              type="file"
+                              accept="image/*"
+                              onChange={handleDocumentPhotoUpload}
+                            />
+                            {documentPhoto && (
+                              <div className="mt-2">
+                                <img src={documentPhoto} alt="Предпросмотр документа" className="max-w-full h-auto rounded border" />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setDocumentPhoto('')}
+                                  className="mt-2"
+                                >
+                                  <X className="w-4 h-4 mr-1" />
+                                  Удалить фото
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsAddDialogOpen(false)}
+                          >
+                            Отмена
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={handleAddSelfEducation}
+                            style={{ backgroundColor: '#53b4e9', color: 'white', borderColor: '#53b4e9' }}
+                            disabled={!newItemType || !newItemName.trim() || !newItemDate || (newItemType === 'Иное' && !customType.trim())}
+                          >
+                            Сохранить
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+
+                    {/* Диалог просмотра записи самообразования */}
+                    <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+                      <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>Просмотр записи самообразования</DialogTitle>
+                          <DialogDescription>
+                            Информация о записи самообразования
+                          </DialogDescription>
+                        </DialogHeader>
+                        {selectedItem && (
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label>Объект изучения</Label>
+                              <Badge>{selectedItem.type}</Badge>
+                            </div>
+                            {selectedItem.customType && (
+                              <div className="space-y-2">
+                                <Label>Тип</Label>
+                                <Badge>{selectedItem.customType}</Badge>
+                              </div>
+                            )}
+                            <div className="space-y-2">
+                              <Label>Наименование</Label>
+                              <p className="text-sm text-muted-foreground">{selectedItem.name}</p>
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Дата прохождения обучения</Label>
+                              <p className="text-sm text-muted-foreground">
+                                {new Date(selectedItem.date).toLocaleDateString('ru-RU')}
+                              </p>
+                            </div>
+                            {selectedItem.documentPhoto && (
+                              <div className="space-y-2">
+                                <Label>Фото документа о прохождении обучения</Label>
+                                <img src={selectedItem.documentPhoto} alt="Документ" className="max-w-full h-auto rounded border" />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <DialogFooter>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsViewDialogOpen(false)}
+                          >
+                            Закрыть
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+
+                    {/* Диалог редактирования записи самообразования */}
+                    <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                      <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>Редактировать запись самообразования</DialogTitle>
+                          <DialogDescription>
+                            Введите информацию о записи самообразования
+                          </DialogDescription>
+                        </DialogHeader>
+                        {selectedItem && (
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="edit-item-type">Объект изучения</Label>
+                              <Select
+                                value={editItemType}
+                                onValueChange={setEditItemType}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Выберите объект изучения" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Книга">Книга</SelectItem>
+                                  <SelectItem value="Подкаст">Подкаст</SelectItem>
+                                  <SelectItem value="Видео">Видео</SelectItem>
+                                  <SelectItem value="Семинар">Семинар</SelectItem>
+                                  <SelectItem value="Мастер-класс">Мастер-класс</SelectItem>
+                                  <SelectItem value="Курс">Курс</SelectItem>
+                                  <SelectItem value="Переподготовка">Переподготовка</SelectItem>
+                                  <SelectItem value="Иное">Иное</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {editItemType === 'Иное' && (
+                              <div className="space-y-2">
+                                <Label htmlFor="edit-custom-type">Укажите тип</Label>
+                                <Input
+                                  id="edit-custom-type"
+                                  value={editCustomType}
+                                  onChange={(e) => setEditCustomType(e.target.value)}
+                                  placeholder="Введите тип объекта изучения"
+                                />
+                              </div>
+                            )}
+                            <div className="space-y-2">
+                              <Label htmlFor="edit-item-name">Наименование</Label>
+                              <Input
+                                id="edit-item-name"
+                                value={editItemName}
+                                onChange={(e) => setEditItemName(e.target.value)}
+                                placeholder="Введите наименование"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="edit-item-date">Дата прохождения обучения</Label>
+                              <Input
+                                id="edit-item-date"
+                                type="date"
+                                value={editItemDate}
+                                onChange={(e) => setEditItemDate(e.target.value)}
+                                placeholder="Введите дату"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="edit-document-photo">Фото документа о прохождении обучения</Label>
+                              <Input
+                                id="edit-document-photo"
+                                type="file"
+                                accept="image/*"
+                                onChange={handleEditDocumentPhotoUpload}
+                              />
+                              {editDocumentPhoto && (
+                                <div className="mt-2">
+                                  <img src={editDocumentPhoto} alt="Предпросмотр документа" className="max-w-full h-auto rounded border" />
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setEditDocumentPhoto('')}
+                                    className="mt-2"
+                                  >
+                                    <X className="w-4 h-4 mr-1" />
+                                    Удалить фото
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        <DialogFooter>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsEditDialogOpen(false)}
+                          >
+                            Отмена
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              if (!editItemType || !editItemName.trim() || !editItemDate) {
+                                return;
+                              }
+
+                              const updatedItem: SelfEducationItem = {
+                                id: selectedItem ? selectedItem.id : Date.now().toString(),
+                                specialistId: specialist.id,
+                                type: editItemType === 'Иное' ? editCustomType : editItemType,
+                                customType: editItemType === 'Иное' ? editCustomType : undefined,
+                                name: editItemName.trim(),
+                                date: editItemDate,
+                                documentPhoto: editDocumentPhoto || undefined,
+                                createdAt: new Date().toISOString()
+                              };
+
+                              const updatedItems = selfEducationItems.map(item => 
+                                item.id === updatedItem.id ? updatedItem : item
+                              );
+                              setSelfEducationItems(updatedItems);
+                              localStorage.setItem('selfEducationItems', JSON.stringify(updatedItems));
+
+                              // Сбросить форму
+                              setIsEditDialogOpen(false);
+                              setEditItemType('');
+                              setEditCustomType('');
+                              setEditItemName('');
+                              setEditItemDate('');
+                              setEditDocumentPhoto('');
+                            }}
+                            style={{ backgroundColor: '#53b4e9', color: 'white', borderColor: '#53b4e9' }}
+                            disabled={!editItemType || !editItemName.trim() || !editItemDate || (editItemType === 'Иное' && !editCustomType.trim())}
+                          >
+                            Сохранить
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </TabsContent>
+
+                  {/* Подраздел Направление на обучение */}
+                  <TabsContent value="training-assignment">
+                    <div className="text-center py-12 text-muted-foreground">
+                      <Send className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                      <p>Подраздел "Направление на обучение" в разработке</p>
+                      <p className="text-sm mt-2">Здесь будут отображаться направления на обучение от администрации</p>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Вкладка Аттестация */}
+          <TabsContent value="certification">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Award className="w-5 h-5" />
+                  Аттестация
+                </CardTitle>
+                <CardDescription>
+                  Информация о прохождении аттестации и результаты тестов
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-12 text-muted-foreground">
+                  <Award className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                  <p>Раздел "Аттестация" в разработке</p>
+                  <p className="text-sm mt-2">Здесь будет отображаться информация об аттестации</p>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

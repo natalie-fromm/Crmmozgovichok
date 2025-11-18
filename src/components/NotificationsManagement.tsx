@@ -12,8 +12,16 @@ import { Checkbox } from "./ui/checkbox";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Switch } from "./ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { MessageSquare, Send, Clock, CheckCircle2, XCircle, AlertCircle, Calendar } from "lucide-react";
+import { MessageSquare, Send, Clock, CheckCircle2, XCircle, AlertCircle, Calendar, Plus, Trash2, Edit } from "lucide-react";
 import { MessengerNotificationPanel } from "./MessengerNotificationPanel";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 
 interface NotificationsManagementProps {
   children: Child[];
@@ -40,6 +48,16 @@ interface MessengerSettings {
   notificationTime: string;
 }
 
+interface AutoSendSchedule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  time: string;
+  messenger: 'whatsapp' | 'telegram' | 'vk';
+  template: string;
+  lastSendDate: string;
+}
+
 export function NotificationsManagement({ children, schedule, onUpdateChild }: NotificationsManagementProps) {
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [notificationLogs, setNotificationLogs] = useState<NotificationLog[]>([]);
@@ -63,53 +81,100 @@ export function NotificationsManagement({ children, schedule, onUpdateChild }: N
     notificationTime: "18:00"
   });
 
-  // Настройки автоматической рассылки
-  const [autoSendEnabled, setAutoSendEnabled] = useState<boolean>(() => {
-    const saved = localStorage.getItem('autoSendEnabled');
-    return saved ? JSON.parse(saved) : false;
-  });
-  const [autoSendTime, setAutoSendTime] = useState<string>(() => {
-    return localStorage.getItem('autoSendTime') || '18:00';
-  });
-  const [autoSendMessenger, setAutoSendMessenger] = useState<'whatsapp' | 'telegram' | 'vk'>(() => {
-    return (localStorage.getItem('autoSendMessenger') as any) || 'whatsapp';
-  });
-  const [autoSendTemplate, setAutoSendTemplate] = useState<string>(() => {
-    return localStorage.getItem('autoSendTemplate') || 
-      "Добрый день, {parentName}! Напоминаем, что завтра, {date} в {time}, у вас запланировано занятие. Пожалуйста, подтвердите свое посещение";
-  });
-  const [lastAutoSendDate, setLastAutoSendDate] = useState<string>(() => {
-    return localStorage.getItem('lastAutoSendDate') || '';
+  // Множественные автоматические рассылки
+  const [autoSendSchedules, setAutoSendSchedules] = useState<AutoSendSchedule[]>(() => {
+    const saved = localStorage.getItem('autoSendSchedules');
+    return saved ? JSON.parse(saved) : [];
   });
 
-  // Сохранение настроек автоматической рассылки в localStorage
-  useEffect(() => {
-    localStorage.setItem('autoSendEnabled', JSON.stringify(autoSendEnabled));
-  }, [autoSendEnabled]);
+  // Диалог создания/редактирования рассылки
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState<AutoSendSchedule | null>(null);
+  const [scheduleForm, setScheduleForm] = useState({
+    name: '',
+    time: '18:00',
+    messenger: 'whatsapp' as 'whatsapp' | 'telegram' | 'vk',
+    template: "Добрый день, {parentName}! Напоминаем, что завтра, {date} в {time}, у вас запланировано занятие. Пожалуйста, подтвердите свое посещение"
+  });
 
+  // Сохранение расписаний в localStorage
   useEffect(() => {
-    localStorage.setItem('autoSendTime', autoSendTime);
-  }, [autoSendTime]);
+    localStorage.setItem('autoSendSchedules', JSON.stringify(autoSendSchedules));
+  }, [autoSendSchedules]);
 
-  useEffect(() => {
-    localStorage.setItem('autoSendMessenger', autoSendMessenger);
-  }, [autoSendMessenger]);
+  // Открыть диалог создания новой рассылки
+  const openNewScheduleDialog = () => {
+    setEditingSchedule(null);
+    setScheduleForm({
+      name: '',
+      time: '18:00',
+      messenger: 'whatsapp',
+      template: "Добрый день, {parentName}! Напоминаем, что завтра, {date} в {time}, у вас запланировано занятие. Пожалуйста, подтвердите свое посещение"
+    });
+    setScheduleDialogOpen(true);
+  };
 
-  useEffect(() => {
-    localStorage.setItem('autoSendTemplate', autoSendTemplate);
-  }, [autoSendTemplate]);
+  // Открыть диалог редактирования рассылки
+  const openEditScheduleDialog = (scheduleItem: AutoSendSchedule) => {
+    setEditingSchedule(scheduleItem);
+    setScheduleForm({
+      name: scheduleItem.name,
+      time: scheduleItem.time,
+      messenger: scheduleItem.messenger,
+      template: scheduleItem.template
+    });
+    setScheduleDialogOpen(true);
+  };
 
-  useEffect(() => {
-    localStorage.setItem('lastAutoSendDate', lastAutoSendDate);
-  }, [lastAutoSendDate]);
+  // Сохранить рассылку
+  const saveSchedule = () => {
+    if (!scheduleForm.name.trim()) {
+      alert('Пожалуйста, введите название рассылки');
+      return;
+    }
 
-  // Функция автоматической отправки оповещений
-  const performAutoSend = () => {
+    if (editingSchedule) {
+      // Редактирование существующей рассылки
+      setAutoSendSchedules(autoSendSchedules.map(s => 
+        s.id === editingSchedule.id
+          ? { ...s, ...scheduleForm }
+          : s
+      ));
+    } else {
+      // Создание новой рассылки
+      const newSchedule: AutoSendSchedule = {
+        id: Date.now().toString(),
+        ...scheduleForm,
+        enabled: true,
+        lastSendDate: ''
+      };
+      setAutoSendSchedules([...autoSendSchedules, newSchedule]);
+    }
+
+    setScheduleDialogOpen(false);
+  };
+
+  // Удалить рассылку
+  const deleteSchedule = (id: string) => {
+    if (confirm('Вы уверены, что хотите удалить эту рассылку?')) {
+      setAutoSendSchedules(autoSendSchedules.filter(s => s.id !== id));
+    }
+  };
+
+  // Переключить включение/выключение рассылки
+  const toggleSchedule = (id: string) => {
+    setAutoSendSchedules(autoSendSchedules.map(s =>
+      s.id === id ? { ...s, enabled: !s.enabled } : s
+    ));
+  };
+
+  // Функция автоматической отправки оповещений для конкретной рассылки
+  const performAutoSend = (scheduleItem: AutoSendSchedule) => {
     const today = new Date();
     const todayString = today.toISOString().split('T')[0];
     
     // Проверяем, что не отправляли сегодня
-    if (lastAutoSendDate === todayString) {
+    if (scheduleItem.lastSendDate === todayString) {
       return;
     }
 
@@ -172,7 +237,7 @@ export function NotificationsManagement({ children, schedule, onUpdateChild }: N
     const newLogs: NotificationLog[] = [];
     
     parentsToNotify.forEach(parent => {
-      const message = autoSendTemplate
+      const message = scheduleItem.template
         .replace('{parentName}', parent.parentName)
         .replace('{childName}', parent.childName)
         .replace('{date}', tomorrow.toLocaleDateString('ru-RU'))
@@ -182,7 +247,7 @@ export function NotificationsManagement({ children, schedule, onUpdateChild }: N
       const cleanPhone = parent.phone.replace(/\D/g, '');
       let link = '';
       
-      switch (autoSendMessenger) {
+      switch (scheduleItem.messenger) {
         case 'whatsapp':
           link = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
           break;
@@ -195,7 +260,7 @@ export function NotificationsManagement({ children, schedule, onUpdateChild }: N
       }
       
       // Открываем ссылку для WhatsApp
-      if (autoSendMessenger === 'whatsapp') {
+      if (scheduleItem.messenger === 'whatsapp') {
         window.open(link, '_blank');
       }
       
@@ -205,10 +270,10 @@ export function NotificationsManagement({ children, schedule, onUpdateChild }: N
         childName: parent.childName,
         parentName: parent.parentName,
         phone: parent.phone,
-        messenger: autoSendMessenger,
+        messenger: scheduleItem.messenger,
         message: message,
         date: tomorrowString,
-        time: autoSendTime,
+        time: scheduleItem.time,
         status: 'sent'
       });
 
@@ -218,12 +283,12 @@ export function NotificationsManagement({ children, schedule, onUpdateChild }: N
         const notificationEntry = {
           id: Date.now().toString() + Math.random(),
           date: tomorrowString,
-          time: autoSendTime,
-          messenger: autoSendMessenger,
+          time: scheduleItem.time,
+          messenger: scheduleItem.messenger,
           recipientName: parent.parentName,
           recipientPhone: parent.phone,
           message: message,
-          sentBy: 'Автоматическая рассылка'
+          sentBy: `Автоматическая рассылка: ${scheduleItem.name}`
         };
 
         const updatedChild = {
@@ -239,20 +304,25 @@ export function NotificationsManagement({ children, schedule, onUpdateChild }: N
     });
 
     setNotificationLogs([...newLogs, ...notificationLogs]);
-    setLastAutoSendDate(todayString);
+    
+    // Обновляем дату последней отправки для этой рассылки
+    setAutoSendSchedules(autoSendSchedules.map(s =>
+      s.id === scheduleItem.id ? { ...s, lastSendDate: todayString } : s
+    ));
   };
 
-  // Проверка времени для автоматической рассылки
+  // Проверка времени для всех автоматических рассылок
   useEffect(() => {
-    if (!autoSendEnabled) return;
-
     const checkTime = () => {
       const now = new Date();
       const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       
-      if (currentTime === autoSendTime) {
-        performAutoSend();
-      }
+      // Проверяем каждую активную рассылку
+      autoSendSchedules.forEach(scheduleItem => {
+        if (scheduleItem.enabled && currentTime === scheduleItem.time) {
+          performAutoSend(scheduleItem);
+        }
+      });
     };
 
     // Проверяем каждую минуту
@@ -262,7 +332,7 @@ export function NotificationsManagement({ children, schedule, onUpdateChild }: N
     checkTime();
 
     return () => clearInterval(interval);
-  }, [autoSendEnabled, autoSendTime, schedule, children, lastAutoSendDate]);
+  }, [autoSendSchedules, schedule, children]);
 
   // Получаем список занятий на выбранную дату
   const getScheduleForDate = () => {
@@ -468,6 +538,19 @@ export function NotificationsManagement({ children, schedule, onUpdateChild }: N
     }
   };
 
+  const getMessengerBadgeColor = (messenger: string) => {
+    switch (messenger) {
+      case 'whatsapp':
+        return 'bg-green-100 text-green-700 border-green-300';
+      case 'telegram':
+        return 'bg-blue-100 text-blue-700 border-blue-300';
+      case 'vk':
+        return 'bg-purple-100 text-purple-700 border-purple-300';
+      default:
+        return '';
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Настройка уведомлений */}
@@ -545,58 +628,140 @@ export function NotificationsManagement({ children, schedule, onUpdateChild }: N
         </CardContent>
       </Card>
 
-      {/* Настройки автоматической рассылки */}
+      {/* Автоматические рассылки */}
       <Card>
         <CardHeader>
-          <CardTitle>Автоматическая рассылка</CardTitle>
-          <CardDescription>
-            Настройте автоматическую отправку оповещений о занятиях на следующий день ежедневно в 18:00
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Включение/выключение автоматической рассылки */}
-          <div className="flex items-center justify-between p-4 border rounded-lg bg-blue-50">
-            <div className="space-y-1">
-              <Label className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                Автоматическая ежедневная рассылка
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                {autoSendEnabled 
-                  ? `Рассылка включена. Оповещения отправляются ежедневно в ${autoSendTime}`
-                  : 'Рассылка отключена. Включите для автоматической отправки'}
-              </p>
-              {lastAutoSendDate && autoSendEnabled && (
-                <p className="text-xs text-muted-foreground">
-                  Последняя рассылка: {new Date(lastAutoSendDate).toLocaleDateString('ru-RU')}
-                </p>
-              )}
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Автоматические рассылки</CardTitle>
+              <CardDescription>
+                Создайте несколько вариантов автоматических рассылок с разным временем и шаблонами
+              </CardDescription>
             </div>
-            <Switch
-              checked={autoSendEnabled}
-              onCheckedChange={setAutoSendEnabled}
-            />
+            <Button onClick={openNewScheduleDialog}>
+              <Plus className="w-4 h-4 mr-2" />
+              Создать рассылку
+            </Button>
           </div>
+        </CardHeader>
+        <CardContent>
+          {autoSendSchedules.length === 0 ? (
+            <Alert>
+              <Calendar className="h-4 w-4" />
+              <AlertDescription>
+                Автоматические рассылки не настроены. Нажмите "Создать рассылку" для добавления новой.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <div className="space-y-4">
+              {autoSendSchedules.map(scheduleItem => (
+                <div
+                  key={scheduleItem.id}
+                  className={`p-4 border rounded-lg ${scheduleItem.enabled ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Switch
+                          checked={scheduleItem.enabled}
+                          onCheckedChange={() => toggleSchedule(scheduleItem.id)}
+                        />
+                        <div>
+                          <h3 className="font-semibold">{scheduleItem.name}</h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge className={getMessengerBadgeColor(scheduleItem.messenger)}>
+                              {scheduleItem.messenger === 'whatsapp' ? 'WhatsApp' : 
+                               scheduleItem.messenger === 'telegram' ? 'Telegram' : 'VK'}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {scheduleItem.time}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-3 p-3 bg-white rounded border">
+                        <p className="text-sm text-muted-foreground mb-1">Шаблон сообщения:</p>
+                        <p className="text-sm">{scheduleItem.template}</p>
+                      </div>
 
-          {autoSendEnabled && (
-            <>
-              {/* Время отправки */}
+                      {scheduleItem.lastSendDate && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Последняя отправка: {new Date(scheduleItem.lastSendDate).toLocaleDateString('ru-RU')}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 ml-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEditScheduleDialog(scheduleItem)}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteSchedule(scheduleItem.id)}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <Alert className="mt-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Каждая рассылка будет автоматически отправляться в указанное время всем родителям, у которых есть занятия на следующий день. Вы можете создать несколько рассылок с разным временем и шаблонами.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+
+      {/* Диалог создания/редактирования рассылки */}
+      <Dialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingSchedule ? 'Редактировать рассылку' : 'Создать новую рассылку'}
+            </DialogTitle>
+            <DialogDescription>
+              Настройте параметры автоматической рассылки оповещений
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Название рассылки</Label>
+              <Input
+                placeholder="Например: Вечернее напоминание"
+                value={scheduleForm.name}
+                onChange={(e) => setScheduleForm({ ...scheduleForm, name: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Время отправки (по умолчанию 18:00)</Label>
-                <Input 
+                <Label>Время отправки</Label>
+                <Input
                   type="time"
-                  value={autoSendTime}
-                  onChange={(e) => setAutoSendTime(e.target.value)}
+                  value={scheduleForm.time}
+                  onChange={(e) => setScheduleForm({ ...scheduleForm, time: e.target.value })}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Рассылка будет отправляться ежедневно в указанное время
-                </p>
               </div>
 
-              {/* Мессенджер */}
               <div className="space-y-2">
-                <Label>Мессенджер для рассылки</Label>
-                <Select value={autoSendMessenger} onValueChange={(value: any) => setAutoSendMessenger(value)}>
+                <Label>Мессенджер</Label>
+                <Select
+                  value={scheduleForm.messenger}
+                  onValueChange={(value: any) => setScheduleForm({ ...scheduleForm, messenger: value })}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -607,31 +772,39 @@ export function NotificationsManagement({ children, schedule, onUpdateChild }: N
                   </SelectContent>
                 </Select>
               </div>
+            </div>
 
-              {/* Шаблон сообщения */}
-              <div className="space-y-2">
-                <Label>Шаблон сообщения для автоматической рассылки</Label>
-                <Textarea 
-                  value={autoSendTemplate}
-                  onChange={(e) => setAutoSendTemplate(e.target.value)}
-                  rows={4}
-                  placeholder="Используйте переменные: {parentName}, {childName}, {date}, {time}, {specialist}"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Доступные переменные: {'{parentName}'}, {'{childName}'}, {'{date}'}, {'{time}'}, {'{specialist}'}
-                </p>
-              </div>
+            <div className="space-y-2">
+              <Label>Шаблон сообщения</Label>
+              <Textarea
+                rows={6}
+                value={scheduleForm.template}
+                onChange={(e) => setScheduleForm({ ...scheduleForm, template: e.target.value })}
+                placeholder="Используйте переменные: {parentName}, {childName}, {date}, {time}, {specialist}"
+              />
+              <p className="text-xs text-muted-foreground">
+                Доступные переменные: {'{parentName}'}, {'{childName}'}, {'{date}'}, {'{time}'}, {'{specialist}'}
+              </p>
+            </div>
 
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Система будет автоматически проверять расписание на следующий день и отправлять оповещения всем родителям, у которых указаны телефоны. Рассылка происходит один раз в день в {autoSendTime}.
-                </AlertDescription>
-              </Alert>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            <Alert>
+              <Calendar className="h-4 w-4" />
+              <AlertDescription>
+                Рассылка будет отправляться ежедневно в {scheduleForm.time} всем родителям из расписания на следующий день.
+              </AlertDescription>
+            </Alert>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScheduleDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button onClick={saveSchedule}>
+              {editingSchedule ? 'Сохранить изменения' : 'Создать рассылку'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* История оповещений */}
       {notificationLogs.length > 0 && (

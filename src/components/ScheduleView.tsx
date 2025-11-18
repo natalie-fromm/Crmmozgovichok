@@ -720,7 +720,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                         onValueChange={(value) => {
                           setNewEntry({
                             ...newEntry, 
-                            serviceType: value as 'neuro-diagnosis' | 'neuro-session' | 'psycho-diagnosis' | 'psycho-session'
+                            serviceType: value as 'neuro-diagnosis' | 'neuro-session' | 'psycho-diagnosis' | 'psycho-session' | 'logo-diagnosis' | 'logo-session'
                           });
                         }}
                       >
@@ -732,6 +732,8 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                           <SelectItem value="neuro-session">Нейро-занятие</SelectItem>
                           <SelectItem value="psycho-diagnosis">Психо-диагностика</SelectItem>
                           <SelectItem value="psycho-session">Психо-занятие</SelectItem>
+                          <SelectItem value="logo-diagnosis">Лого-диагностика</SelectItem>
+                          <SelectItem value="logo-session">Лого-занятие</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1092,7 +1094,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                       onValueChange={(value) => {
                         setEditingEntry({
                           ...editingEntry,
-                          serviceType: value as 'neuro-diagnosis' | 'neuro-session' | 'psycho-diagnosis' | 'psycho-session'
+                          serviceType: value as 'neuro-diagnosis' | 'neuro-session' | 'psycho-diagnosis' | 'psycho-session' | 'logo-diagnosis' | 'logo-session'
                         });
                       }}
                     >
@@ -1104,6 +1106,8 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                         <SelectItem value="neuro-session">Нейро-занятие</SelectItem>
                         <SelectItem value="psycho-diagnosis">Психо-диагностика</SelectItem>
                         <SelectItem value="psycho-session">Психо-занятие</SelectItem>
+                        <SelectItem value="logo-diagnosis">Лого-диагностика</SelectItem>
+                        <SelectItem value="logo-session">Лого-занятие</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1580,6 +1584,8 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                                           {entry.serviceType === 'neuro-session' && '🧠 Нейро-занятие'}
                                           {entry.serviceType === 'psycho-diagnosis' && '🔍 Психо-диагностика'}
                                           {entry.serviceType === 'psycho-session' && '💭 Психо-занятие'}
+                                          {entry.serviceType === 'logo-diagnosis' && '🗣️ Лого-диагностика'}
+                                          {entry.serviceType === 'logo-session' && '📢 Лого-занятие'}
                                         </div>
                                       )}
                                       

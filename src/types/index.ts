@@ -84,7 +84,7 @@ export interface ScheduleEntry {
   time: string;
   specialistId: string;
   specialistName: string;
-  serviceType?: 'neuro-diagnosis' | 'neuro-session' | 'psycho-diagnosis' | 'psycho-session'; // Тип услуги
+  serviceType?: 'neuro-diagnosis' | 'neuro-session' | 'psycho-diagnosis' | 'psycho-session' | 'logo-diagnosis' | 'logo-session'; // Тип услуги
   paymentAmount: number;
   paymentType?: 'single' | 'subscription'; // Разово или Абонемент
   paymentMethod?: 'cash' | 'card'; // Нал или Безнал

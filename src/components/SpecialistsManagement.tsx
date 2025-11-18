@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { UserPlus, UserX, UserCheck, Users } from "lucide-react";
+import { UserPlus, UserX, UserCheck, Users, Archive } from "lucide-react";
 import { SpecialistCardView } from "./SpecialistCardView";
 
 interface SpecialistsManagementProps {
@@ -19,6 +19,7 @@ interface SpecialistsManagementProps {
 export function SpecialistsManagement({ specialists, onUpdateSpecialists }: SpecialistsManagementProps) {
   const [isAddingSpecialist, setIsAddingSpecialist] = useState(false);
   const [selectedSpecialist, setSelectedSpecialist] = useState<Specialist | null>(null);
+  const [viewMode, setViewMode] = useState<'active' | 'archive'>('active');
   const [newSpecialist, setNewSpecialist] = useState({
     firstName: "",
     lastName: "",
@@ -104,6 +105,12 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
     );
   }
 
+  // Фильтрация специалистов по режиму просмотра
+  const filteredSpecialists = specialists.filter(specialist => {
+    const isActive = specialist.active !== false;
+    return viewMode === 'active' ? isActive : !isActive;
+  });
+
   return (
     <div className="space-y-4">
       <Card>
@@ -111,110 +118,130 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5" />
-              Управление специалистами
+              {viewMode === 'active' ? 'Управление специалистами' : 'Архив специалистов'}
             </CardTitle>
-            <Dialog open={isAddingSpecialist} onOpenChange={setIsAddingSpecialist}>
-              <DialogTrigger asChild>
-                <Button style={{ backgroundColor: '#53b4e9', color: 'white', borderColor: '#53b4e9' }}>
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Добавить специалиста
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Регистрация нового специалиста</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Фамилия</Label>
-                      <Input 
-                        value={newSpecialist.lastName}
-                        onChange={(e) => setNewSpecialist({...newSpecialist, lastName: e.target.value})}
-                        placeholder="Введите фамилию"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Имя</Label>
-                      <Input 
-                        value={newSpecialist.firstName}
-                        onChange={(e) => setNewSpecialist({...newSpecialist, firstName: e.target.value})}
-                        placeholder="Введите имя"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input 
-                      type="email"
-                      value={newSpecialist.email}
-                      onChange={(e) => setNewSpecialist({...newSpecialist, email: e.target.value})}
-                      placeholder="email@example.com"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Пароль</Label>
-                    <Input 
-                      type="password"
-                      value={newSpecialist.password}
-                      onChange={(e) => setNewSpecialist({...newSpecialist, password: e.target.value})}
-                      placeholder="Введите пароль"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Роль</Label>
-                    <Select
-                      value={newSpecialist.role}
-                      onValueChange={(value: "admin" | "specialist") => setNewSpecialist({...newSpecialist, role: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="specialist">Специалист</SelectItem>
-                        <SelectItem value="admin">Администратор</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Категория</Label>
-                    <Select
-                      value={newSpecialist.category}
-                      onValueChange={(value: "neuropsychologist" | "psychologist" | "speech_therapist" | "special_educator" | undefined) => setNewSpecialist({...newSpecialist, category: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="neuropsychologist">Нейропсихолог</SelectItem>
-                        <SelectItem value="psychologist">Психолог</SelectItem>
-                        <SelectItem value="speech_therapist">Логопед</SelectItem>
-                        <SelectItem value="special_educator">Дефектолог</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>День рождения</Label>
-                    <Input 
-                      type="date"
-                      value={newSpecialist.birthday}
-                      onChange={(e) => setNewSpecialist({...newSpecialist, birthday: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Иное</Label>
-                    <Input 
-                      value={newSpecialist.other}
-                      onChange={(e) => setNewSpecialist({...newSpecialist, other: e.target.value})}
-                      placeholder="Дополнительная информация"
-                    />
-                  </div>
-                  <Button onClick={addSpecialist} className="w-full">
-                    Добавить специалиста
+            <div className="flex gap-2">
+              {viewMode === 'active' ? (
+                <>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setViewMode('archive')}
+                  >
+                    <Archive className="w-4 h-4 mr-2" />
+                    Архив ({specialists.filter(s => s.active === false).length})
                   </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                  <Dialog open={isAddingSpecialist} onOpenChange={setIsAddingSpecialist}>
+                    <DialogTrigger asChild>
+                      <Button style={{ backgroundColor: '#53b4e9', color: 'white', borderColor: '#53b4e9' }}>
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Добавить специалиста
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Регистрация нового специалиста</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Фамилия</Label>
+                            <Input 
+                              value={newSpecialist.lastName}
+                              onChange={(e) => setNewSpecialist({...newSpecialist, lastName: e.target.value})}
+                              placeholder="Введите фамилию"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Имя</Label>
+                            <Input 
+                              value={newSpecialist.firstName}
+                              onChange={(e) => setNewSpecialist({...newSpecialist, firstName: e.target.value})}
+                              placeholder="Введите имя"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Email</Label>
+                          <Input 
+                            type="email"
+                            value={newSpecialist.email}
+                            onChange={(e) => setNewSpecialist({...newSpecialist, email: e.target.value})}
+                            placeholder="email@example.com"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Пароль</Label>
+                          <Input 
+                            type="password"
+                            value={newSpecialist.password}
+                            onChange={(e) => setNewSpecialist({...newSpecialist, password: e.target.value})}
+                            placeholder="Введите пароль"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Роль</Label>
+                          <Select
+                            value={newSpecialist.role}
+                            onValueChange={(value: "admin" | "specialist") => setNewSpecialist({...newSpecialist, role: value})}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="specialist">Специалист</SelectItem>
+                              <SelectItem value="admin">Администратор</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Категория</Label>
+                          <Select
+                            value={newSpecialist.category}
+                            onValueChange={(value: "neuropsychologist" | "psychologist" | "speech_therapist" | "special_educator" | undefined) => setNewSpecialist({...newSpecialist, category: value})}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="neuropsychologist">Нейропсихолог</SelectItem>
+                              <SelectItem value="psychologist">Психолог</SelectItem>
+                              <SelectItem value="speech_therapist">Логопед</SelectItem>
+                              <SelectItem value="special_educator">Дефектолог</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>День рождения</Label>
+                          <Input 
+                            type="date"
+                            value={newSpecialist.birthday}
+                            onChange={(e) => setNewSpecialist({...newSpecialist, birthday: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Иное</Label>
+                          <Input 
+                            value={newSpecialist.other}
+                            onChange={(e) => setNewSpecialist({...newSpecialist, other: e.target.value})}
+                            placeholder="Дополнительная информация"
+                          />
+                        </div>
+                        <Button onClick={addSpecialist} className="w-full">
+                          Добавить специалиста
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  onClick={() => setViewMode('active')}
+                >
+                  Вернуться к специалистам
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -232,7 +259,7 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
               </TableRow>
             </TableHeader>
             <TableBody>
-              {specialists.map((specialist) => {
+              {filteredSpecialists.map((specialist) => {
                 const isActive = specialist.active !== false;
                 const getCategoryLabel = (category: string | undefined) => {
                   switch (category) {
@@ -241,6 +268,18 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
                     case 'speech_therapist': return 'Логопед';
                     case 'special_educator': return 'Дефектолог';
                     default: return '—';
+                  }
+                };
+
+                const getCategoryColor = (category: string | undefined) => {
+                  if (!isActive) return { backgroundColor: '#53b4e9', color: 'white' };
+                  
+                  switch (category) {
+                    case 'neuropsychologist': return { backgroundColor: '#b19cd9', color: 'white' }; // светло-фиолетовый
+                    case 'psychologist': return { backgroundColor: '#87ceeb', color: 'white' }; // светло-голубой
+                    case 'speech_therapist': return { backgroundColor: '#ffb74d', color: 'white' }; // светло-оранжевый
+                    case 'special_educator': return { backgroundColor: '#90caf9', color: 'white' }; // светло-синий
+                    default: return {};
                   }
                 };
                 
@@ -261,7 +300,10 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
                     </TableCell>
                     <TableCell>
                       {specialist.category && (
-                        <Badge variant="secondary">
+                        <Badge 
+                          variant="secondary"
+                          style={getCategoryColor(specialist.category)}
+                        >
                           {getCategoryLabel(specialist.category)}
                         </Badge>
                       )}
@@ -282,7 +324,7 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
                     <TableCell>
                       <Badge 
                         variant={isActive ? 'default' : 'secondary'}
-                        style={isActive ? { backgroundColor: '#22c55e', color: 'white' } : {}}
+                        style={isActive ? { backgroundColor: '#22c55e', color: 'white' } : { backgroundColor: '#f44336', color: 'white' }}
                       >
                         {isActive ? 'Активен' : 'Деактивирован'}
                       </Badge>
@@ -293,6 +335,7 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
                         size="sm"
                         onClick={() => toggleSpecialistStatus(specialist.id)}
                         disabled={specialist.role === 'admin'}
+                        style={!isActive ? { backgroundColor: '#22c55e', color: 'white', borderColor: '#22c55e' } : {}}
                       >
                         {isActive ? (
                           <>
