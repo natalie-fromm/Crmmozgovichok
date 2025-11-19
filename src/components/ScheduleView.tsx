@@ -46,6 +46,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
     time: '10:00',
     specialistId: '',
     specialistName: '',
+    serviceType: '' as '' | 'neuro-diagnosis' | 'neuro-session' | 'psycho-diagnosis' | 'psycho-session' | 'logo-diagnosis' | 'logo-session',
     paymentTotalAmount: 0,
     paymentTypeDetailed: 'single' as 'single' | 'subscription4' | 'subscription8' | 'subscription12',
     paymentMethod: 'cash' as 'cash' | 'card',
@@ -377,6 +378,12 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
   };
 
   const addEntry = () => {
+    // Проверка обязательных полей
+    if (!newEntry.serviceType) {
+      alert('Пожалуйста, выберите тип услуги');
+      return;
+    }
+    
     const entry: ScheduleEntry = {
       id: Date.now().toString(),
       childId: newEntry.childId,
@@ -385,6 +392,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
       time: newEntry.time,
       specialistId: newEntry.specialistId,
       specialistName: newEntry.specialistName,
+      serviceType: newEntry.serviceType as 'neuro-diagnosis' | 'neuro-session' | 'psycho-diagnosis' | 'psycho-session' | 'logo-diagnosis' | 'logo-session',
       paymentAmount: newEntry.paymentAmount,
       paymentType: newEntry.paymentType,
       paymentMethod: newEntry.paymentMethod,
@@ -407,6 +415,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
       time: '10:00',
       specialistId: '',
       specialistName: '',
+      serviceType: '' as '' | 'neuro-diagnosis' | 'neuro-session' | 'psycho-diagnosis' | 'psycho-session' | 'logo-diagnosis' | 'logo-session',
       paymentTotalAmount: 0,
       paymentTypeDetailed: 'single' as 'single' | 'subscription4' | 'subscription8' | 'subscription12',
       paymentMethod: 'cash' as 'cash' | 'card',
@@ -714,7 +723,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                     </div>
                     
                     <div className="space-y-2">
-                      <Label>Услуга</Label>
+                      <Label>Услуга <span className="text-red-500">*</span></Label>
                       <Select
                         value={newEntry.serviceType || ''}
                         onValueChange={(value) => {
@@ -723,6 +732,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                             serviceType: value as 'neuro-diagnosis' | 'neuro-session' | 'psycho-diagnosis' | 'psycho-session' | 'logo-diagnosis' | 'logo-session'
                           });
                         }}
+                        required
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Выберите услугу" />
@@ -1088,7 +1098,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                   </div>
                   
                   <div className="space-y-2">
-                    <Label>Услуга</Label>
+                    <Label>Услуга <span className="text-red-500">*</span></Label>
                     <Select
                       value={editingEntry.serviceType || ''}
                       onValueChange={(value) => {
@@ -1097,6 +1107,7 @@ export function ScheduleView({ schedule, specialists, children, onUpdateSchedule
                           serviceType: value as 'neuro-diagnosis' | 'neuro-session' | 'psycho-diagnosis' | 'psycho-session' | 'logo-diagnosis' | 'logo-session'
                         });
                       }}
+                      required
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите услугу" />

@@ -261,7 +261,11 @@ export function AdminDashboard({
   )).sort((a, b) => b.localeCompare(a));
 
   const handleArchiveToggle = (child: Child) => {
-    const updatedChild = { ...child, archived: !child.archived };
+    const updatedChild = { 
+      ...child, 
+      archived: !child.archived,
+      archivedDate: !child.archived ? new Date().toISOString() : undefined
+    };
     onUpdateChild(updatedChild);
   };
 
@@ -413,7 +417,7 @@ export function AdminDashboard({
                   <div>
                     <CardTitle>Карточки клиентов</CardTitle>
                     <CardDescription>
-                      {viewArchived ? `Архив: ${archivedChildren.length}` : `Активных: ${activeChildren.length}`}
+                      {viewArchived ? 'Архив клиентов' : `Активных: ${activeChildren.length}`}
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-3">
@@ -429,6 +433,7 @@ export function AdminDashboard({
                     <Button
                       variant="outline"
                       size="sm"
+                      style={viewArchived ? { backgroundColor: '#53b4e9', color: 'white', borderColor: '#53b4e9' } : { backgroundColor: '#6b7280', color: 'white', borderColor: '#6b7280' }}
                       onClick={() => setViewArchived(!viewArchived)}
                     >
                       {viewArchived ? (
@@ -464,6 +469,7 @@ export function AdminDashboard({
                       <TableHead>Возраст</TableHead>
                       <TableHead>Дата рождения</TableHead>
                       <TableHead>Дата обращения</TableHead>
+                      {viewArchived && <TableHead>Дата архивирования</TableHead>}
                       <TableHead>Занятия</TableHead>
                       <TableHead>Действия</TableHead>
                     </TableRow>
@@ -505,6 +511,11 @@ export function AdminDashboard({
                             {new Date(child.birthDate).toLocaleDateString('ru-RU')}
                           </TableCell>
                           <TableCell>{new Date(child.firstVisitDate).toLocaleDateString('ru-RU')}</TableCell>
+                          {viewArchived && (
+                            <TableCell>
+                              {child.archivedDate ? new Date(child.archivedDate).toLocaleDateString('ru-RU') : '-'}
+                            </TableCell>
+                          )}
                           <TableCell>
                             <Badge>{completedSessions} / {totalScheduled}</Badge>
                           </TableCell>
@@ -521,6 +532,7 @@ export function AdminDashboard({
                               <Button
                                 variant="outline"
                                 size="sm"
+                                style={child.archived ? { backgroundColor: '#22c55e', color: 'white', borderColor: '#22c55e' } : {}}
                                 onClick={() => handleArchiveToggle(child)}
                               >
                                 {child.archived ? (

@@ -44,6 +44,17 @@ export const mockSpecialists: Specialist[] = [
     category: 'speech_therapist',
     createdAt: '2024-04-01T10:00:00.000Z'
   },
+  { 
+    id: '5', 
+    firstName: 'Ольга', 
+    lastName: 'Козлова', 
+    role: 'client',
+    email: 'client@mozgovichok.ru',
+    password: 'client123',
+    active: true,
+    childId: '1', // связь с карточкой Козлов Александр Дмитриевич
+    createdAt: '2024-09-01T10:00:00.000Z'
+  },
 ];
 
 export const mockChildren: Child[] = [
@@ -714,5 +725,49 @@ export const mockSchedule: ScheduleEntry[] = [
     totalSessions: 8,
     status: 'scheduled',
     serviceType: 'neuro-session'
+  },
+  
+  // Будущие занятия для демонстрации клиенту
+  {
+    id: 'sch6',
+    childId: '1',
+    childName: 'Козлов Александр Дмитриевич',
+    date: '2024-11-20',
+    time: '10:00',
+    specialistId: '2',
+    specialistName: 'Мария Петрова',
+    paymentAmount: 2500,
+    sessionsCompleted: 1,
+    totalSessions: 8,
+    status: 'scheduled',
+    serviceType: 'neuro-session'
+  },
+  {
+    id: 'sch7',
+    childId: '1',
+    childName: 'Козлов Александр Дмитриевич',
+    date: '2024-11-25',
+    time: '10:00',
+    specialistId: '2',
+    specialistName: 'Мария Петрова',
+    paymentAmount: 2500,
+    sessionsCompleted: 2,
+    totalSessions: 8,
+    status: 'scheduled',
+    serviceType: 'neuro-session'
+  },
+  {
+    id: 'sch8',
+    childId: '1',
+    childName: 'Козлов Александр Дмитриевич',
+    date: '2024-12-02',
+    time: '11:00',
+    specialistId: '3',
+    specialistName: 'Елена Сидорова',
+    paymentAmount: 2500,
+    sessionsCompleted: 3,
+    totalSessions: 8,
+    status: 'scheduled',
+    serviceType: 'psycho-session'
   },
 ];

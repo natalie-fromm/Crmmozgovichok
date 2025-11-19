@@ -4,10 +4,12 @@ import { mockChildren, mockSpecialists, mockSchedule } from './data/mockData';
 import { LoginPage } from './components/LoginPage';
 import { AdminDashboard } from './components/AdminDashboard';
 import { SpecialistDashboard } from './components/SpecialistDashboard';
+import { ClientDashboard } from './components/ClientDashboard';
 import { NotificationHistoryDemo } from './components/NotificationHistoryDemo';
 import { PersonalNotificationDemo } from './components/PersonalNotificationDemo';
 import { StatisticsDemo } from './components/StatisticsDemo';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { Button } from './components/ui/button';
 
 export default function App() {
   // Демонстрация вкладки "Статистика" с заполненными данными
@@ -190,6 +192,31 @@ export default function App() {
         onUpdateExpenseSettings={setExpenseSettings}
         onLogout={handleLogout}
         onAddChild={handleAddChild}
+      />
+    );
+  }
+
+  if (currentUser.role === 'client') {
+    const clientChild = children.find(c => c.id === currentUser.childId);
+    
+    if (!clientChild) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <h2 className="text-2xl mb-4">Карточка не найдена</h2>
+            <p className="text-muted-foreground mb-4">Не удалось найти вашу карточку клиента.</p>
+            <Button onClick={handleLogout}>Выйти</Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <ClientDashboard
+        currentUser={currentUser}
+        child={clientChild}
+        schedule={schedule}
+        onLogout={handleLogout}
       />
     );
   }

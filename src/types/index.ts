@@ -14,6 +14,7 @@ export interface Child {
   sessions: Session[];
   monthlyReports: MonthlyReport[];
   archived?: boolean; // флаг архивирования карточки
+  archivedDate?: string; // дата архивирования
   diagnosticInfo?: string; // значимое из диагностики
   otherActivities?: string; // посещение иных занятий
   interests?: string; // интересы ребенка
@@ -65,7 +66,7 @@ export interface Specialist {
   id: string;
   firstName: string;
   lastName: string;
-  role: 'admin' | 'specialist';
+  role: 'admin' | 'specialist' | 'client';
   category?: 'neuropsychologist' | 'psychologist' | 'speech_therapist' | 'special_educator'; // Категория специалиста
   email: string;
   password: string;
@@ -74,6 +75,7 @@ export interface Specialist {
   birthday?: string; // день рождения
   other?: string; // иное (дополнительная информация)
   deactivationDate?: string; // дата деактивации специалиста
+  childId?: string; // ID карточки клиента (только для роли 'client')
 }
 
 export interface ScheduleEntry {

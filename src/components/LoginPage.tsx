@@ -111,6 +111,9 @@ export function LoginPage({ specialists, onLogin }: LoginPageProps) {
               <p>
                 <strong>Специалист 2:</strong> elena@mozgovichok.ru / elena123
               </p>
+              <p>
+                <strong>Клиент:</strong> client@mozgovichok.ru / client123
+              </p>
             </div>
           </div>
         </CardContent>
