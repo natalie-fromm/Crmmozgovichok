@@ -16,6 +16,8 @@ interface NewChildFormProps {
 
 export function NewChildForm({ onSave, onCancel, existingChildren = [] }: NewChildFormProps) {
   const [formData, setFormData] = useState({
+    login: "",
+    password: "",
     code: "",
     lastName: "",
     firstName: "",
@@ -163,6 +165,31 @@ export function NewChildForm({ onSave, onCancel, existingChildren = [] }: NewChi
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="login">Логин *</Label>
+                <Input
+                  id="login"
+                  type="email"
+                  required
+                  value={formData.login}
+                  onChange={(e) => setFormData({ ...formData, login: e.target.value })}
+                  placeholder="email@example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Пароль *</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="Введите пароль"
+                />
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="code">Шифр *</Label>

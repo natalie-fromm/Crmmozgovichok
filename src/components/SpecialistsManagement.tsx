@@ -161,7 +161,7 @@ export function SpecialistsManagement({ specialists, onUpdateSpecialists }: Spec
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label>Email</Label>
+                          <Label>Логин</Label>
                           <Input 
                             type="email"
                             value={newSpecialist.email}

@@ -59,7 +59,7 @@ export function LoginPage({ specialists, onLogin }: LoginPageProps) {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Логин</Label>
               <Input
                 id="email"
                 type="email"

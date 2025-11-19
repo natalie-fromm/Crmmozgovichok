@@ -466,7 +466,7 @@ export function AdminDashboard({
                         onClick={() => setShowNewChildForm(true)}
                       >
                         <Plus className="w-4 h-4 mr-2" />
-                        Создать карточку
+                        Добавить клиента
                       </Button>
                     )}
                   </div>
