@@ -5,6 +5,11 @@
       --tw-translate-x: 0;
       --tw-translate-y: 0;
       --tw-translate-z: 0;
+      --tw-rotate-x: rotateX(0);
+      --tw-rotate-y: rotateY(0);
+      --tw-rotate-z: rotateZ(0);
+      --tw-skew-x: skewX(0);
+      --tw-skew-y: skewY(0);
       --tw-space-y-reverse: 0;
       --tw-space-x-reverse: 0;
       --tw-divide-y-reverse: 0;
@@ -526,6 +531,10 @@
     top: calc(var(--spacing) * 0);
   }
 
+  .top-1\/2 {
+    top: 50%;
+  }
+
   .top-2\.5 {
     top: calc(var(--spacing) * 2.5);
   }
@@ -560,6 +569,10 @@
 
   .left-2 {
     left: calc(var(--spacing) * 2);
+  }
+
+  .left-3 {
+    left: calc(var(--spacing) * 3);
   }
 
   .left-\[50\%\] {
@@ -632,6 +645,10 @@
 
   .mt-6 {
     margin-top: calc(var(--spacing) * 6);
+  }
+
+  .mt-12 {
+    margin-top: calc(var(--spacing) * 12);
   }
 
   .mr-1 {
@@ -1093,6 +1110,11 @@
     translate: var(--tw-translate-x) var(--tw-translate-y);
   }
 
+  .-translate-y-1\/2 {
+    --tw-translate-y: calc(calc(1 / 2 * 100%) * -1);
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+  }
+
   .translate-y-\[-50\%\] {
     --tw-translate-y: -50%;
     translate: var(--tw-translate-x) var(--tw-translate-y);
@@ -1100,6 +1122,10 @@
 
   .rotate-\[-45deg\] {
     rotate: -45deg;
+  }
+
+  .transform {
+    transform: var(--tw-rotate-x) var(--tw-rotate-y) var(--tw-rotate-z) var(--tw-skew-x) var(--tw-skew-y);
   }
 
   .cursor-default {
@@ -1426,6 +1452,10 @@
     border-color: var(--color-gray-300);
   }
 
+  .border-gray-400 {
+    border-color: var(--color-gray-400);
+  }
+
   .border-gray-700 {
     border-color: var(--color-gray-700);
   }
@@ -1436,6 +1466,10 @@
 
   .border-green-300 {
     border-color: var(--color-green-300);
+  }
+
+  .border-green-500 {
+    border-color: var(--color-green-500);
   }
 
   .border-indigo-200 {
@@ -1564,6 +1598,10 @@
 
   .bg-gray-200 {
     background-color: var(--color-gray-200);
+  }
+
+  .bg-gray-400 {
+    background-color: var(--color-gray-400);
   }
 
   .bg-gray-800 {
@@ -1901,6 +1939,10 @@
 
   .pl-8 {
     padding-left: calc(var(--spacing) * 8);
+  }
+
+  .pl-10 {
+    padding-left: calc(var(--spacing) * 10);
   }
 
   .text-center {
@@ -2417,6 +2459,18 @@
   }
 
   @media (hover: hover) {
+    .hover\:bg-gray-500:hover {
+      background-color: var(--color-gray-500);
+    }
+  }
+
+  @media (hover: hover) {
+    .hover\:bg-green-600:hover {
+      background-color: var(--color-green-600);
+    }
+  }
+
+  @media (hover: hover) {
     .hover\:bg-muted\/50:hover {
       background-color: var(--muted);
     }
@@ -2897,6 +2951,12 @@
   }
 
   @media (width >= 48rem) {
+    .md\:grid-cols-5 {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+  }
+
+  @media (width >= 48rem) {
     .md\:text-sm {
       font-size: var(--text-sm);
       line-height: var(--tw-leading, var(--text-sm--line-height));
@@ -3247,6 +3307,36 @@ html {
   syntax: "*";
   inherits: false;
   initial-value: 0;
+}
+
+@property --tw-rotate-x {
+  syntax: "*";
+  inherits: false;
+  initial-value: rotateX(0);
+}
+
+@property --tw-rotate-y {
+  syntax: "*";
+  inherits: false;
+  initial-value: rotateY(0);
+}
+
+@property --tw-rotate-z {
+  syntax: "*";
+  inherits: false;
+  initial-value: rotateZ(0);
+}
+
+@property --tw-skew-x {
+  syntax: "*";
+  inherits: false;
+  initial-value: skewX(0);
+}
+
+@property --tw-skew-y {
+  syntax: "*";
+  inherits: false;
+  initial-value: skewY(0);
 }
 
 @property --tw-space-y-reverse {

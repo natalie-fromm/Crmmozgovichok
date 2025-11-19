@@ -198,7 +198,7 @@ export function ClientDashboard({ currentUser, child, schedule, onLogout }: Clie
       };
     }
 
-    // Низкий р��зультат - увядающее растение
+    // Низкий рзультат - увядающее растение
     if (
       (scheduledThisMonth === 4 && completedThisMonth >= 0 && completedThisMonth <= 2) ||
       (scheduledThisMonth === 8 && completedThisMonth >= 0 && completedThisMonth <= 5) ||
@@ -221,19 +221,21 @@ export function ClientDashboard({ currentUser, child, schedule, onLogout }: Clie
         {/* Шапка */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl mb-2">Личный кабинет клиента</h1>
+            <h1 className="text-3xl mb-2">Дневник успеха</h1>
             <p className="text-muted-foreground">
               {child.name}
             </p>
           </div>
-          <Button 
-            variant="outline" 
-            onClick={onLogout}
-            style={{ backgroundColor: '#53b4e9', color: 'white', borderColor: '#53b4e9' }}
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Выйти
-          </Button>
+          {currentUser.role !== 'admin' && (
+            <Button 
+              variant="outline" 
+              onClick={onLogout}
+              style={{ backgroundColor: '#53b4e9', color: 'white', borderColor: '#53b4e9' }}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Выйти
+            </Button>
+          )}
         </div>
 
         {/* Статистика */}
@@ -548,6 +550,82 @@ export function ClientDashboard({ currentUser, child, schedule, onLogout }: Clie
           </TabsContent>
         </Tabs>
 
+        {/* Копилка знаний */}
+        <div className="mt-12">
+          <div className="mb-6">
+            <h2 className="text-3xl mb-2">Копилка знаний</h2>
+            <p className="text-muted-foreground">Рекомендуем...</p>
+          </div>
+
+          <Tabs defaultValue="read">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="read">
+                <FileText className="w-4 h-4 mr-2" />
+                Почитать
+              </TabsTrigger>
+              <TabsTrigger value="watch">
+                <FileText className="w-4 h-4 mr-2" />
+                Посмотреть
+              </TabsTrigger>
+              <TabsTrigger value="practice">
+                <FileText className="w-4 h-4 mr-2" />
+                Позаниматься
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Почитать */}
+            <TabsContent value="read">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Рекомендуемые материалы для чтения</CardTitle>
+                  <CardDescription>
+                    Полезные статьи и книги для развития
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-center text-muted-foreground py-8">
+                    Материалы скоро появятся
+                  </p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Посмотреть */}
+            <TabsContent value="watch">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Рекомендуемые видео</CardTitle>
+                  <CardDescription>
+                    Обучающие видео и материалы
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-center text-muted-foreground py-8">
+                    Материалы скоро появятся
+                  </p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Позаниматься */}
+            <TabsContent value="practice">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Упражнения и задания</CardTitle>
+                  <CardDescription>
+                    Практические материалы для самостоятельных занятий
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-center text-muted-foreground py-8">
+                    Материалы скоро появятся
+                  </p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+
         {/* Диалог с детальной информацией о назначенных занятиях */}
         <Dialog open={showScheduledDialog} onOpenChange={setShowScheduledDialog}>
           <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
@@ -588,7 +666,7 @@ export function ClientDashboard({ currentUser, child, schedule, onLogout }: Clie
                         case 'completed': return <Badge variant="default" className="bg-green-500">Пройдено</Badge>;
                         case 'absent': return <Badge variant="destructive">Пропущено</Badge>;
                         case 'scheduled': return <Badge variant="outline">Запланировано</Badge>;
-                        default: return <Badge variant="outline">Не ��звестно</Badge>;
+                        default: return <Badge variant="outline">Не звестно</Badge>;
                       }
                     };
 

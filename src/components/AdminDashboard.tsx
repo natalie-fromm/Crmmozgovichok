@@ -21,6 +21,7 @@ import { TestViewDialog } from "./TestViewDialog";
 import { Users, Calendar, BarChart3, LogOut, Search, TrendingUp, DollarSign, Download, Plus, Archive, ArchiveRestore, UserCog, BookOpen, UserPlus, FolderOpen, FileText, Bell, Award, Trash2, Eye, Pencil } from "lucide-react";
 import { exportStatisticsToPDF } from "../utils/pdfExport";
 import logo from "figma:asset/a77c055ce1f22b1a1ba46b904d066b60abd7fc2a.png";
+import { ClientDashboard } from "./ClientDashboard";
 
 interface AdminDashboardProps {
   children: Child[];
@@ -69,6 +70,9 @@ export function AdminDashboard({
   const [showTestViewDialog, setShowTestViewDialog] = useState(false);
   const [selectedTest, setSelectedTest] = useState<any>(null);
   const [testToEdit, setTestToEdit] = useState<any>(null);
+  const [selectedDiaryChild, setSelectedDiaryChild] = useState<Child | null>(null);
+  const [viewArchivedDiaries, setViewArchivedDiaries] = useState(false);
+  const [searchDiaryQuery, setSearchDiaryQuery] = useState('');
 
   // Загрузка тестов из localStorage при монтировании
   useEffect(() => {
@@ -376,6 +380,14 @@ export function AdminDashboard({
               <Users className="w-4 h-4" />
               Клиенты
             </TabsTrigger>
+            <TabsTrigger value="diaries" className="flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              Дневники
+            </TabsTrigger>
+            <TabsTrigger value="education" className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4" />
+              Просвещение
+            </TabsTrigger>
             <TabsTrigger value="schedule" className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
               Расписание
@@ -554,6 +566,302 @@ export function AdminDashboard({
                     })}
                   </TableBody>
                 </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="diaries">
+            {selectedDiaryChild ? (
+              <div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setSelectedDiaryChild(null)}
+                  className="mb-4"
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Назад к списку
+                </Button>
+                <ClientDashboard 
+                  currentUser={{ 
+                    id: 'admin', 
+                    name: 'Администратор', 
+                    role: 'admin',
+                    email: 'admin@example.com',
+                    phone: '',
+                    specialization: '',
+                    salary: 0,
+                    category: 'admin'
+                  }}
+                  child={selectedDiaryChild}
+                  schedule={schedule}
+                  onLogout={() => setSelectedDiaryChild(null)}
+                />
+              </div>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <CardTitle>Дневники успеха</CardTitle>
+                      <CardDescription>
+                        {viewArchivedDiaries ? 'Архив клиентов' : `Активных клиентов: ${children.filter(c => !c.archived).length}`}
+                      </CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant={viewArchivedDiaries ? 'default' : 'outline'}
+                        onClick={() => setViewArchivedDiaries(!viewArchivedDiaries)}
+                        className={viewArchivedDiaries ? '' : 'bg-gray-400 text-white hover:bg-gray-500 border-gray-400'}
+                      >
+                        {viewArchivedDiaries ? (
+                          <>
+                            <ArchiveRestore className="w-4 h-4 mr-2" />
+                            Активные
+                          </>
+                        ) : (
+                          <>
+                            <Archive className="w-4 h-4 mr-2" />
+                            Архив
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  {/* Поле поиска */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                    <Input
+                      placeholder="Поиск по фамилии, имени, отчеству или шифру..."
+                      value={searchDiaryQuery}
+                      onChange={(e) => setSearchDiaryQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {children
+                      .filter(child => viewArchivedDiaries ? child.archived : !child.archived)
+                      .filter(child => {
+                        if (!searchDiaryQuery.trim()) return true;
+                        const query = searchDiaryQuery.toLowerCase();
+                        return (
+                          child.name.toLowerCase().includes(query) ||
+                          child.code.toLowerCase().includes(query)
+                        );
+                      })
+                      .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+                      .map(child => {
+                        // Вычисляем статистику по занятиям
+                        const childSchedule = schedule.filter(entry => entry.childId === child.id);
+                        const totalScheduled = childSchedule.length;
+                        const completed = childSchedule.filter(entry => entry.status === 'completed').length;
+                        const absent = childSchedule.filter(entry => entry.status === 'absent').length;
+                        const attendanceRate = totalScheduled > 0 ? Math.round((completed / totalScheduled) * 100) : 0;
+
+                        return (
+                          <Card 
+                            key={child.id}
+                            className="hover:bg-gray-100 transition-colors"
+                          >
+                            <CardContent className="p-4">
+                              <div 
+                                className="flex items-start justify-between cursor-pointer mb-3"
+                                onClick={() => setSelectedDiaryChild(child)}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <Users className="w-5 h-5 text-muted-foreground" />
+                                  <div>
+                                    <p className="font-medium">{child.name}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Шифр: {child.code}
+                                    </p>
+                                  </div>
+                                </div>
+                                {child.archived && !viewArchivedDiaries && (
+                                  <Badge variant="secondary">
+                                    <Archive className="w-3 h-3 mr-1" />
+                                    Архив
+                                  </Badge>
+                                )}
+                              </div>
+                              
+                              {/* Статистика */}
+                              <div 
+                                className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3 cursor-pointer"
+                                onClick={() => setSelectedDiaryChild(child)}
+                              >
+                                <div className="bg-gray-50 p-2 rounded">
+                                  <p className="text-xs text-muted-foreground">Начало</p>
+                                  <p className="font-medium text-sm">
+                                    {new Date(child.firstVisitDate).toLocaleDateString('ru-RU')}
+                                  </p>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded">
+                                  <p className="text-xs text-muted-foreground">Назначено</p>
+                                  <p className="font-medium text-sm">{totalScheduled}</p>
+                                </div>
+                                <div className="bg-green-50 p-2 rounded">
+                                  <p className="text-xs text-muted-foreground">Пройдено</p>
+                                  <p className="font-medium text-sm text-green-700">{completed}</p>
+                                </div>
+                                <div className="bg-red-50 p-2 rounded">
+                                  <p className="text-xs text-muted-foreground">Пропущено</p>
+                                  <p className="font-medium text-sm text-red-700">{absent}</p>
+                                </div>
+                                <div className="bg-blue-50 p-2 rounded">
+                                  <p className="text-xs text-muted-foreground">Посещаемость</p>
+                                  <p className="font-medium text-sm text-blue-700">{attendanceRate}%</p>
+                                </div>
+                              </div>
+
+                              {/* Кнопка архивирования */}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className={`w-full ${
+                                  child.archived 
+                                    ? 'bg-green-500 text-white hover:bg-green-600 border-green-500' 
+                                    : 'bg-gray-400 text-white hover:bg-gray-500 border-gray-400'
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const updatedChild = {
+                                    ...child,
+                                    archived: !child.archived,
+                                    archivedDate: !child.archived ? new Date().toISOString() : undefined
+                                  };
+                                  onUpdateChild(updatedChild);
+                                }}
+                              >
+                                {child.archived ? (
+                                  <>
+                                    <ArchiveRestore className="w-4 h-4 mr-2" />
+                                    Восстановить
+                                  </>
+                                ) : (
+                                  <>
+                                    <Archive className="w-4 h-4 mr-2" />
+                                    Архивировать
+                                  </>
+                                )}
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    {(() => {
+                      const filteredChildren = children
+                        .filter(child => viewArchivedDiaries ? child.archived : !child.archived)
+                        .filter(child => {
+                          if (!searchDiaryQuery.trim()) return true;
+                          const query = searchDiaryQuery.toLowerCase();
+                          return (
+                            child.name.toLowerCase().includes(query) ||
+                            child.code.toLowerCase().includes(query)
+                          );
+                        });
+                      
+                      if (filteredChildren.length === 0) {
+                        return (
+                          <p className="text-center text-muted-foreground py-8">
+                            {searchDiaryQuery.trim() 
+                              ? 'Клиенты не найдены по вашему запросу' 
+                              : (viewArchivedDiaries ? 'Нет клиентов в архиве' : 'Нет активных клиентов')
+                            }
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="education">
+            <Card>
+              <CardHeader>
+                <CardTitle>Просвещение</CardTitle>
+                <CardDescription>
+                  Управление материалами для копилки знаний клиентов
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Почитать */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <FileText className="w-5 h-5" />
+                        Почитать
+                      </CardTitle>
+                      <CardDescription>
+                        Статьи и материалы для чтения
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                          Материалы для клиентов появятся здесь
+                        </p>
+                        <Button className="w-full">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Добавить
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Посмотреть */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <FileText className="w-5 h-5" />
+                        Посмотреть
+                      </CardTitle>
+                      <CardDescription>
+                        Видео и обучающие материалы
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                          Материалы для клиентов появятся здесь
+                        </p>
+                        <Button className="w-full">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Добавить
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Позаниматься */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <FileText className="w-5 h-5" />
+                        Позаниматься
+                      </CardTitle>
+                      <CardDescription>
+                        Практические упражнения
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                          Материалы для клиентов появятся здесь
+                        </p>
+                        <Button className="w-full">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Добавить
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
